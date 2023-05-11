@@ -64,7 +64,7 @@ services:
     environment:
       - WS_SECRET=eth-net-stats-secret
     ports:
-      - "3000:3000"
+      - 3000:3000
     networks:
       priv-eth-net:
       net-stats:
@@ -91,7 +91,6 @@ services:
       - 8085:8081
     networks:
       - postgres-network
-      - redis-network
     restart: on-failure:3
 
   redis:
