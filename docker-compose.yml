@@ -30,9 +30,9 @@ services:
       - "30303:30303"
       - "30303:30303/udp"
     volumes:
-      - ./files/password:/root/files/password:ro
-      - ./files/genesis.json:/root/files/genesis.json:ro
-      - ./files/keystore:/root/.ethereum/devchain/keystore:rw
+      - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
+      - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
+      - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
     networks:
       priv-eth-net:
 
@@ -52,9 +52,9 @@ services:
       --netrestrict="172.16.254.0/28"
       --miner.etherbase="0xfec114eab1feaae445bcfc355affc40d16fca62f"
     volumes:
-      - ./files/password:/root/files/password:ro
-      - ./files/genesis.json:/root/files/genesis.json:ro
-      - ./files/keystore:/root/.ethereum/devchain/keystore:rw
+      - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
+      - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
+      - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
     networks:
       priv-eth-net:
   
@@ -76,7 +76,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: username
     ports:
-      - 5432:5432
+      - 5430:5430
     networks:
       - postgres-network
     restart: on-failure:3
