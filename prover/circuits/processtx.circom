@@ -4,12 +4,12 @@ include "../node_modules/circomlib/circuits/eddsamimic.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 include "../node_modules/circomlib/circuits/smt/smtverifier.circom";
+include "../node_modules/circomlib/circuits/smt/smtprocessor.circom";
 include "../node_modules/circomlib/circuits/mux1.circom";
 
 template ProcessTx(depth) {
-    signal output newBalanceTreeRoot;
-
     signal input balanceTreeRoot;
+    signal output newBalanceTreeRoot;
 
     // [public_key_x, public_key_y, balance, nonce]
     var BALANCE_TREE_LEAF_DATA_LENGTH = 4;
@@ -52,16 +52,17 @@ template ProcessTx(depth) {
     signal input txRecipientPathElements[depth];
 
     // Intermediate balance tree root
+    // Path is the txRecipient path where txSender leaf is updated
     signal input intermediateBalanceTreeRoot;
     signal input intermediateBalanceTreePathElements[depth];
 
-    // 1. Validate the signature
+    // 1.1 Validate the signature
     // sign the tx with eddsa.signMiMc()
     signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)(txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX], txData[TX_DATA_AMOUNT_WEI_IDX], txData[TX_DATA_FEE_WEI_IDX], txData[TX_DATA_NONCE_IDX]);
     EdDSAMiMCVerifier()(txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], txData[TX_DATA_SIGNATURE_S_IDX], hashedMsg);
 
     // 1.2 Make sure the nonce, amount and fee are valid
-    tx[TX_DATA_NONCE_IDX] === txSenderNonce;
+    tx[TX_DATA_NONCE_IDX] === txSenderNonce + 1;
     1 === GreaterThan(256)(txData[TX_DATA_AMOUNT_WEI_IDX], 0);
     1 === GreaterThan(256)(txData[TX_DATA_FEE_WEI_IDX], 0);
     
@@ -74,17 +75,24 @@ template ProcessTx(depth) {
     SMTVerifier(depth)(1, balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0);
 
     // 4. Create new txSender and txRecipient leaves
-    // TODO: using SMTProcessor to compare with intermidiate root & create newBalanceRoot
-    var newSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
-    signal newSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txSenderPublicKey[0], txSenderPublicKey[1], newSenderBalance, txData[TX_DATA_NONCE_IDX]);
+    var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
+    signal newTxSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txSenderPublicKey[0], txSenderPublicKey[1], newTxSenderBalance, txData[TX_DATA_NONCE_IDX]);
 
     signal isSenderRecipentEqual <== IsEqual()(txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX]);
 
-    signal selectedRecipientBalance <== Mux1()(txRecipientBalance, newSenderBalance, isSenderRecipentEqual);
-    signal selectedRecipientNonce <== Mux1()(txRecipientNonce, txData[TX_DATA_NONCE_IDX], isSenderRecipentEqual);
+    signal offsetTxRecipientBalance <== Mux1()(txRecipientBalance, newTxSenderBalance, isSenderRecipentEqual);
+    signal offsetTxRecipientNonce <== Mux1()(txRecipientNonce, txData[TX_DATA_NONCE_IDX], isSenderRecipentEqual);
 
-    var newRecipientBalance = selectedRecipientBalance + txData[TX_DATA_AMOUNT_WEI_IDX];
-    signal newRecipientLeaf <== Poseidon(txRecipientPublicKey[0], txRecipientPublicKey[1], newRecipientBalance, selectedRecipientNonce);
-
+    var newTxRecipientBalance = offsetTxRecipientBalance + txData[TX_DATA_AMOUNT_WEI_IDX];
+    signal newTxRecipientLeaf <== Poseidon(txRecipientPublicKey[0], txRecipientPublicKey[1], newTxRecipientBalance, offsetTxRecipientNonce);
     
+    // 5.1 Update txSender
+    var UPDATE_FUNCTION = [0, 1];
+
+    intermediateBalanceTreeRoot === SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
+
+    // 5.2 Update txRecipient
+    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce);
+
+    newBalanceRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, 0, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
 }
