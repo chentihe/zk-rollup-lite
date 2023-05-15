@@ -1,6 +1,6 @@
-pragma circom  2.1.0;
+pragma circom  2.1.5;
 
-include "../node_modules/circomlib/circuits/eddsamimic.circom";
+include "../node_modules/circomlib/circuits/eddsamimc.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 include "../node_modules/circomlib/circuits/smt/smtverifier.circom";
@@ -58,41 +58,50 @@ template ProcessTx(depth) {
 
     // 1.1 Validate the signature
     // sign the tx with eddsa.signMiMc()
-    signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)(txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX], txData[TX_DATA_AMOUNT_WEI_IDX], txData[TX_DATA_FEE_WEI_IDX], txData[TX_DATA_NONCE_IDX]);
-    EdDSAMiMCVerifier()(txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], txData[TX_DATA_SIGNATURE_S_IDX], hashedMsg);
+    var ENABLED = 1;
+    signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)([txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX], txData[TX_DATA_AMOUNT_WEI_IDX], txData[TX_DATA_FEE_WEI_IDX], txData[TX_DATA_NONCE_IDX]]);
+    EdDSAMiMCVerifier()(ENABLED, txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], txData[TX_DATA_SIGNATURE_S_IDX], hashedMsg);
 
     // 1.2 Make sure the nonce, amount and fee are valid
-    tx[TX_DATA_NONCE_IDX] === txSenderNonce + 1;
-    1 === GreaterThan(256)(txData[TX_DATA_AMOUNT_WEI_IDX], 0);
-    1 === GreaterThan(256)(txData[TX_DATA_FEE_WEI_IDX], 0);
+    var TRUE = 1;
+
+    txData[TX_DATA_NONCE_IDX] === txSenderNonce + 1;
+    signal isAmountValid <== GreaterThan(252)([txData[TX_DATA_AMOUNT_WEI_IDX], 0]);
+    signal isFeeValid <== GreaterThan(252)([txData[TX_DATA_FEE_WEI_IDX], 0]);
+
+    TRUE === isAmountValid;
+    TRUE === isFeeValid;
     
     // 2. Make sure sender balance > amount + fee
-    1 === GreaterThan(256)(txSenderBalance, txData[TX_DATA_AMOUNT_WEI_IDX] + txData[TX_DATA_FEE_WEI_IDX]);
+    signal isBalanceValid <== GreaterThan(252)([txSenderBalance, txData[TX_DATA_AMOUNT_WEI_IDX] + txData[TX_DATA_FEE_WEI_IDX]]);
+
+    TRUE === isBalanceValid;
 
     // 3. Make sure sender exists in the balance tree
-    signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce);
+    signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce]);
 
-    SMTVerifier(depth)(1, balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0);
+    SMTVerifier(depth)(1, balanceTreeRoot, txSenderPathElements, 0, 0, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0);
 
     // 4. Create new txSender and txRecipient leaves
     var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
-    signal newTxSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txSenderPublicKey[0], txSenderPublicKey[1], newTxSenderBalance, txData[TX_DATA_NONCE_IDX]);
+    signal newTxSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txSenderPublicKey[0], txSenderPublicKey[1], newTxSenderBalance, txData[TX_DATA_NONCE_IDX]]);
 
-    signal isSenderRecipentEqual <== IsEqual()(txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX]);
+    signal isSenderRecipentEqual <== IsEqual()([txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX]]);
 
-    signal offsetTxRecipientBalance <== Mux1()(txRecipientBalance, newTxSenderBalance, isSenderRecipentEqual);
-    signal offsetTxRecipientNonce <== Mux1()(txRecipientNonce, txData[TX_DATA_NONCE_IDX], isSenderRecipentEqual);
+    signal offsetTxRecipientBalance <== Mux1()([txRecipientBalance, newTxSenderBalance], isSenderRecipentEqual);
+    signal offsetTxRecipientNonce <== Mux1()([txRecipientNonce, txData[TX_DATA_NONCE_IDX]], isSenderRecipentEqual);
 
     var newTxRecipientBalance = offsetTxRecipientBalance + txData[TX_DATA_AMOUNT_WEI_IDX];
-    signal newTxRecipientLeaf <== Poseidon(txRecipientPublicKey[0], txRecipientPublicKey[1], newTxRecipientBalance, offsetTxRecipientNonce);
+    signal newTxRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txRecipientPublicKey[0], txRecipientPublicKey[1], newTxRecipientBalance, offsetTxRecipientNonce]);
     
     // 5.1 Update txSender
-    var UPDATE_FUNCTION = [0, 1];
+    var UPDATE_FUNCTION[2] = [0, 1];
 
-    intermediateBalanceTreeRoot === SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
+    signal computedIntermediateBalanceTreeRoot <== SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
+    intermediateBalanceTreeRoot === computedIntermediateBalanceTreeRoot;
 
     // 5.2 Update txRecipient
-    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)(txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce);
+    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
 
-    newBalanceRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, 0, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
+    newBalanceTreeRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, 0, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
 }
