@@ -64,6 +64,8 @@ template ProcessTx(depth) {
 
     // 1.2 Make sure the nonce, amount and fee are valid
     var TRUE = 1;
+    var NOT_OLD = 0;
+    var VERIFY_INCLUSION = 0;
 
     txData[TX_DATA_NONCE_IDX] === txSenderNonce + 1;
     signal isAmountValid <== GreaterThan(252)([txData[TX_DATA_AMOUNT_WEI_IDX], 0]);
@@ -80,7 +82,7 @@ template ProcessTx(depth) {
     // 3. Make sure sender exists in the balance tree
     signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce]);
 
-    SMTVerifier(depth)(1, balanceTreeRoot, txSenderPathElements, 0, 0, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0);
+    SMTVerifier(depth)(ENABLED, balanceTreeRoot, txSenderPathElements, NOT_OLD, 0, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, VERIFY_INCLUSION);
 
     // 4. Create new txSender and txRecipient leaves
     var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
@@ -97,11 +99,11 @@ template ProcessTx(depth) {
     // 5.1 Update txSender
     var UPDATE_FUNCTION[2] = [0, 1];
 
-    signal computedIntermediateBalanceTreeRoot <== SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, 0, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
+    signal computedIntermediateBalanceTreeRoot <== SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, NOT_OLD, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
     intermediateBalanceTreeRoot === computedIntermediateBalanceTreeRoot;
 
     // 5.2 Update txRecipient
     signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
 
-    newBalanceTreeRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, 0, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
+    newBalanceTreeRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, NOT_OLD, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
 }
