@@ -7,6 +7,8 @@ include "../node_modules/circomlib/circuits/smt/smtverifier.circom";
 include "../node_modules/circomlib/circuits/smt/smtprocessor.circom";
 include "../node_modules/circomlib/circuits/mux1.circom";
 
+// use powersOfTau 2**15 constraints
+
 template ProcessTx(depth) {
     signal input balanceTreeRoot;
     signal output newBalanceTreeRoot;

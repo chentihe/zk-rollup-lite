@@ -2,6 +2,8 @@ pragma circom 2.1.5;
 
 include "processTx.circom";
 
+// use powersOfTau 2**17 constraints
+
 template BatchProcessTx(batchSize, depth) {
     signal output newBalanceTreeRoot;
 
@@ -26,7 +28,7 @@ template BatchProcessTx(batchSize, depth) {
     // Intermediate balance tree roots
     // Path is the txRecipient path where txSender leaf is updated
     signal input intermediateBalanceTreeRoots[batchSize];
-    signal input intermediateBalancesPathElements[batchSize][depth];
+    signal input intermediateBalanceTreesPathElements[batchSize][depth];
 
     // Process Txs
     signal processTxs[batchSize];
@@ -43,7 +45,7 @@ template BatchProcessTx(batchSize, depth) {
             txRecipientsNonce[i], 
             txRecipientsPathElements[i], 
             intermediateBalanceTreeRoots[i], 
-            intermediateBalancesPathElements[i]
+            intermediateBalanceTreesPathElements[i]
         );
     }
 
