@@ -57,10 +57,26 @@ template ProcessTx(depth) {
     signal input intermediateBalanceTreePathElements[depth];
 
     // 1.1 Validate the signature
-    // sign the tx with eddsa.signMiMc()
+    // sign the tx with eddsa.signMiMC()
     var ENABLED = 1;
-    signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)([txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX], txData[TX_DATA_AMOUNT_WEI_IDX], txData[TX_DATA_FEE_WEI_IDX], txData[TX_DATA_NONCE_IDX]]);
-    EdDSAMiMCVerifier()(ENABLED, txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_S_IDX], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], hashedMsg);
+    signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)(
+        [
+            txData[TX_DATA_FROM_IDX], 
+            txData[TX_DATA_TO_IDX],
+            txData[TX_DATA_AMOUNT_WEI_IDX],
+            txData[TX_DATA_FEE_WEI_IDX],
+            txData[TX_DATA_NONCE_IDX]
+        ]
+    );
+    EdDSAMiMCVerifier()(
+        ENABLED,
+        txSenderPublicKey[0],
+        txSenderPublicKey[1],
+        txData[TX_DATA_SIGNATURE_S_IDX],
+        txData[TX_DATA_SIGNATURE_R8X_IDX],
+        txData[TX_DATA_SIGNATURE_R8Y_IDX],
+        hashedMsg
+    );
 
     // 1.2 Make sure the nonce, amount and fee are valid
     var TRUE = 1;
@@ -80,30 +96,62 @@ template ProcessTx(depth) {
     TRUE === isBalanceValid;
 
     // 3. Make sure sender exists in the balance tree
-    signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce]);
+    signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
+        ([txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce]);
 
-    SMTVerifier(depth)(ENABLED, balanceTreeRoot, txSenderPathElements, NOT_OLD, 0, 0, txData[TX_DATA_FROM_IDX], txSenderLeaf, VERIFY_INCLUSION);
+    SMTVerifier(depth)(
+        ENABLED,
+        balanceTreeRoot,
+        txSenderPathElements,
+        NOT_OLD,
+        0,
+        0,
+        txData[TX_DATA_FROM_IDX],
+        txSenderLeaf,
+        VERIFY_INCLUSION
+    );
 
     // 4. Create new txSender and txRecipient leaves
     var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
-    signal newTxSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txSenderPublicKey[0], txSenderPublicKey[1], newTxSenderBalance, txData[TX_DATA_NONCE_IDX]]);
+    signal newTxSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
+        ([txSenderPublicKey[0], txSenderPublicKey[1], newTxSenderBalance, txData[TX_DATA_NONCE_IDX]]);
 
+    // In case the sender is the recipient, the balance and the nonce should be updated simultaneously
     signal isSenderRecipentEqual <== IsEqual()([txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX]]);
 
     signal offsetTxRecipientBalance <== Mux1()([txRecipientBalance, newTxSenderBalance], isSenderRecipentEqual);
     signal offsetTxRecipientNonce <== Mux1()([txRecipientNonce, txData[TX_DATA_NONCE_IDX]], isSenderRecipentEqual);
 
     var newTxRecipientBalance = offsetTxRecipientBalance + txData[TX_DATA_AMOUNT_WEI_IDX];
-    signal newTxRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txRecipientPublicKey[0], txRecipientPublicKey[1], newTxRecipientBalance, offsetTxRecipientNonce]);
+    signal newTxRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
+        ([txRecipientPublicKey[0], txRecipientPublicKey[1], newTxRecipientBalance, offsetTxRecipientNonce]);
     
     // 5.1 Update txSender
     var UPDATE_FUNCTION[2] = [0, 1];
 
-    signal computedIntermediateBalanceTreeRoot <== SMTProcessor(depth)(balanceTreeRoot, txSenderPathElements, txData[TX_DATA_FROM_IDX], txSenderLeaf, NOT_OLD, txData[TX_DATA_FROM_IDX], newTxSenderLeaf, UPDATE_FUNCTION);
+    signal computedIntermediateBalanceTreeRoot <== SMTProcessor(depth)(
+        balanceTreeRoot,
+        txSenderPathElements,
+        txData[TX_DATA_FROM_IDX],
+        txSenderLeaf, NOT_OLD,
+        txData[TX_DATA_FROM_IDX],
+        newTxSenderLeaf,
+        UPDATE_FUNCTION
+    );
     intermediateBalanceTreeRoot === computedIntermediateBalanceTreeRoot;
 
     // 5.2 Update txRecipient
-    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
+    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
+        ([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
 
-    newBalanceTreeRoot <== SMTProcessor(depth)(intermediateBalanceTreeRoot, intermediateBalanceTreePathElements, txData[TX_DATA_TO_IDX], txRecipientLeaf, NOT_OLD, txData[TX_DATA_TO_IDX], newTxRecipientLeaf, UPDATE_FUNCTION);
+    newBalanceTreeRoot <== SMTProcessor(depth)(
+        intermediateBalanceTreeRoot,
+        intermediateBalanceTreePathElements,
+        txData[TX_DATA_TO_IDX],
+        txRecipientLeaf,
+        NOT_OLD,
+        txData[TX_DATA_TO_IDX],
+        newTxRecipientLeaf,
+        UPDATE_FUNCTION
+    );
 }
