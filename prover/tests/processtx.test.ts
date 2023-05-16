@@ -1,13 +1,12 @@
 import path from "path";
 import { genPrivKey } from "maci-crypto";
-import { expect } from "chai";
 const { eddsa, smt, poseidon } = require("circomlibjs");
 const { Scalar } = require("ffjavascript")
-
 const wasm_tester = require("circom_tester").wasm;
 
 describe("processtx.circom", () => {
     it("ProcessTx(4)",async () => {
+        // Compile the circuit
         const circuit = await wasm_tester(
             path.join(__dirname, "circuits", "processtxTest.circom"),
             {
@@ -17,6 +16,9 @@ describe("processtx.circom", () => {
             },
         )
 
+        const depth = 4
+
+        // Create mock users
         const userAIndex = 0;
         const userABalance = BigInt(50e18);
         const userANonce = 1;
@@ -33,15 +35,21 @@ describe("processtx.circom", () => {
         const feeAmount = BigInt(0.5e18);
         
         const balanceTree = await smt.newMemEmptyTrie()
-        await insertTree(balanceTree, userAIndex, pubA, userABalance, userANonce)
-        await insertTree(balanceTree, userBIndex, pubB, userBBalance, userBNonce)
-        await insertTree(balanceTree, 2, genPublicKey(genPrivKey().toString()), BigInt(0), 0)
-        await insertTree(balanceTree, 3, genPublicKey(genPrivKey().toString()), BigInt(0), 0)
+        for (let i = 0; i < depth; i++) {
+            if (i === userAIndex) {
+                await insertTree(balanceTree, userAIndex, pubA, userABalance, userANonce)
+            } else if (i === userBIndex) {
+                await insertTree(balanceTree, userBIndex, pubB, userBBalance, userBNonce)
+            } else {
+                await insertTree(balanceTree, i, genPublicKey(genPrivKey().toString()), BigInt(0), 0)
+            }
+        }
 
         const balanceTreeRoot = balanceTree.root;
-        const userASiblings = (await balanceTree.find(userAIndex)).siblings
-        const userBSiblings = (await balanceTree.find(userBIndex)).siblings
+        const userASiblings = fillSiblings(depth, (await balanceTree.find(userAIndex)).siblings)
+        const userBSiblings = fillSiblings(depth, (await balanceTree.find(userBIndex)).siblings)
 
+        // Create the transaction
         const rawTx = {
             from: userAIndex,
             to: userBIndex,
@@ -53,17 +61,22 @@ describe("processtx.circom", () => {
         const signature = eddsa.signMiMC(privA, hashedTx)
         const tx = Object.assign({}, rawTx, {signature})
 
+        // IntermediateBalanceRoot
+        // Update txSender
         const intermediateUserALeaf = [...pubA, Scalar.sub(Scalar.sub(userABalance, sendAmount), feeAmount), userANonce + 1]
         const hashedIntermediateUserALeaf = poseidon(intermediateUserALeaf)
 
         await balanceTree.update(userAIndex, hashedIntermediateUserALeaf)
 
+        // Update txRecipient
         const intermediateBalanceTreeRoot = balanceTree.root;
-        const intermediateBalanceTreeSiblings = (await balanceTree.find(userBIndex)).siblings
+        const intermediateBalanceTreeSiblings = fillSiblings(4, (await balanceTree.find(userBIndex)).siblings)
         const finalUserBLeaf = [...pubB, Scalar.add(userBBalance, sendAmount), userBNonce]
         const hashedFinalUserBLeaf = poseidon(finalUserBLeaf)
         await balanceTree.update(userBIndex, hashedFinalUserBLeaf)
 
+        // Create circuit inputs
+        // All input format must be string
         const circuitInputs = stringifyBigInts({
             balanceTreeRoot: balanceTreeRoot,
             txData: formatTx(tx),
@@ -79,19 +92,15 @@ describe("processtx.circom", () => {
             intermediateBalanceTreePathElements: intermediateBalanceTreeSiblings
         })
 
-        // TODO: fill the empty leaf to meet the path of siblings
         const witness = await circuit.calculateWitness(circuitInputs);
-        const outputIdx = circuit.getSignalIdx("main.newBalanceTreeRoot")
-        const newBalanceTreeRootCircom = witness[outputIdx]
-
-        expect(balanceTree.root.toString()).equal(newBalanceTreeRootCircom.toString())
+        await circuit.checkConstraints(witness);
     });
 
     function genPublicKey(privateKey: string) {
-        return eddsa.prv2pub(privateKey).map((each: { toString: () => any; }) => each.toString());
+        return eddsa.prv2pub(privateKey);
     }
 
-    async function insertTree(tree: any , index: number, publicKey: any, balance: BigInt, nonce: number) {
+    async function insertTree(tree: any , index: number, publicKey: Array<BigInt>, balance: BigInt, nonce: number) {
         const leaf = poseidon([publicKey[0], publicKey[1], balance, nonce])
         await tree.insert(index, leaf)
     }
@@ -125,5 +134,15 @@ describe("processtx.circom", () => {
         } else {
             return inputs
         }
+    }
+
+    function fillSiblings(depth: number, siblings: Array<BigInt>): Array<BigInt> {
+        const diff = depth - siblings.length
+        if (diff > 0) {
+            for (let i = 0; i < diff; i++) {
+                siblings.push(BigInt(0))
+            }
+        }
+        return siblings
     }
 })

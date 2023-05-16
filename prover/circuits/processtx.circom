@@ -60,7 +60,7 @@ template ProcessTx(depth) {
     // sign the tx with eddsa.signMiMc()
     var ENABLED = 1;
     signal hashedMsg <== Poseidon(TX_DATA_WITHOUT_SIG_LENGTH)([txData[TX_DATA_FROM_IDX], txData[TX_DATA_TO_IDX], txData[TX_DATA_AMOUNT_WEI_IDX], txData[TX_DATA_FEE_WEI_IDX], txData[TX_DATA_NONCE_IDX]]);
-    EdDSAMiMCVerifier()(ENABLED, txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], txData[TX_DATA_SIGNATURE_S_IDX], hashedMsg);
+    EdDSAMiMCVerifier()(ENABLED, txSenderPublicKey[0], txSenderPublicKey[1], txData[TX_DATA_SIGNATURE_S_IDX], txData[TX_DATA_SIGNATURE_R8X_IDX], txData[TX_DATA_SIGNATURE_R8Y_IDX], hashedMsg);
 
     // 1.2 Make sure the nonce, amount and fee are valid
     var TRUE = 1;
