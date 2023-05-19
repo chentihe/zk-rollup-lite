@@ -2,4 +2,4 @@ pragma circom  2.1.5;
 
 include "../../circuits/batchProcessTx.circom";
 
-component main = BatchProcessTx(4, 5);
+component main = BatchProcessTx(2, 6);

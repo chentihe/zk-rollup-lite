@@ -14,7 +14,7 @@ const {
 } = require("./utils/helpers")
 
 describe("batchProcessTx.circom", () => {
-    it("BatchProcessTx(4, 5)", async () => {
+    it("BatchProcessTx(2, 6)", async () => {
         // Compile the circuit
         const circuit = await wasm_tester(
             path.join(__dirname, "circuits", "batchProcessTxTest.circom"),
@@ -26,8 +26,8 @@ describe("batchProcessTx.circom", () => {
         )
 
         const numberOfUsers = 10
-        const batchSize = 4
-        const depth = 5
+        const batchSize = 2
+        const depth = 6
 
         // Create users
         const users = []

@@ -97,7 +97,7 @@ template ProcessTx(depth) {
 
     TRUE === isBalanceValid;
 
-    // 3. Make sure sender exists in the balance tree
+    // 3. Make sure sender and recipient exist in the balance tree
     signal txSenderLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
         ([txSenderPublicKey[0], txSenderPublicKey[1], txSenderBalance, txSenderNonce]);
 
@@ -112,6 +112,21 @@ template ProcessTx(depth) {
         txSenderLeaf,
         VERIFY_INCLUSION
     );
+
+    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
+        ([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
+    
+    SMTVerifier(depth)(
+        ENABLED,
+        balanceTreeRoot,
+        txRecipientPathElements,
+        NOT_OLD,
+        0,
+        0,
+        txData[TX_DATA_TO_IDX],
+        txRecipientLeaf,
+        VERIFY_INCLUSION
+    )
 
     // 4. Create new txSender and txRecipient leaves
     var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
