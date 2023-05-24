@@ -70,6 +70,10 @@ export const formatTx = (tx: any) => {
     .map((x: any) => BigInt(x))
 }
 
+export const arrayifySignature = (signature: any) => {
+    return [...signature.R8, signature.S]
+}
+
 export const stringifyBigInts = (inputs: any): any => {
     if (typeof inputs == "bigint") {
         return inputs.toString(10)
