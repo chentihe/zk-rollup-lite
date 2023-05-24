@@ -2,19 +2,29 @@
 pragma solidity >0.8.0 <=0.9;
 
 import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/incremental-merkle-tree.sol/contracts/IncrementalBinaryTree.sol";
+
 import {PoseidonT5} from "poseidon-solidity/PoseidonT5.sol";
 import {PoseidonT6} from "poseidon-solidity/PoseidonT6.sol";
+
 import {TxVerifier} from "./verifiers/TxVerifier.sol";
+import {WithdrawVerifier} from "./verifiers/WithdrawVerifier.sol";
+
 import {Constants} from "./Constants.sol";
 import {Errors} from "./Errors.sol";
 
 contract Rollup {
     using IncrementalBinaryTree for IncrementalTreeData;
 
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    uint256 private _status;
+
     IncrementalTreeData balanceTree;
 
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
+    
     PoseidonT6 poseidonT6;
     PoseidonT5 poseidonT5;
 
@@ -44,6 +54,16 @@ contract Rollup {
         poseidonT5 = _poseidonT5;
         poseidonT6 = _poseidonT6;
         balanceTree.initWithDefaultZeroes(_depth);
+        _status = _NOT_ENTERED;
+    }
+
+    modifier nonReentrant() {
+        if (_status == _ENTERED) {
+            revert REENTRANT_CALL();
+        }
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
     }
 
     function rollUp (
@@ -122,14 +142,13 @@ contract Rollup {
 
             senderLeaf = poseidonT6.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
 
-            // overflow / underflow can't happen
+            // underflow can't happen
             // zkp verified all inputs
             unchecked {
                 sender.balance -= amount;
                 sender.balance -= fee; 
             }
             sender.nonce = nonce;
-
 
             accruedFees += fee;
 
@@ -154,12 +173,17 @@ contract Rollup {
 
     // if the user is the first time to deposit, 
     // leave empty array for proofSiblings & proofPathindices
-    function deposit(uint256 publicKeyX, uint256 publicKeyY, uint256[] calldata proofSiblings, uint8[] calldata proofPathIndices) public payable {
-        uint256 publicKeyHash = keccak256(abi.encodePacked(publicKeyX, publicKeyY));
-        User storage user = balanceTreeUsers[publicKeyHash];
+    function deposit(
+        uint256 publicKeyX,
+        uint256 publicKeyY,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices
+    ) external payable {
         if (msg.value == 0) {
             revert Errors.INVALID_VALIE();
         }
+
+        User storage user = _getUserByPublicKey(publicKeyX, publicKeyY);
         
         uint256 leaf = poseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
         
@@ -182,4 +206,76 @@ contract Rollup {
     }
 
     // TODO: withdraw need to generate zkp, need to write a circuit for withdraw
+    function withdraw(
+        uint256 amount,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices,
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint256[3] memory input
+    ) external {
+        _withdraw(Constants.UINT256_MAX, proofSiblings, proofPathIndices, a, b, c, input);
+    }
+
+    function withdraw(
+        uint256 amount,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices,
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint256[3] memory input
+    ) external {
+        _withdraw(amount, proofSiblings, proofPathIndices, a, b, c, input);
+    }
+
+    function _withdraw(
+        uint256 amount,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices,
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint256[3] memory input
+    ) internal nonReentrant {
+        uint256 publicKeyX = input[0];
+        uint256 publicKeyY = input[1];
+        uint256 nullifier = input[2];
+
+        if (usedNullifiers[nullifier]) {
+            revert Errors.INVALID_NULLIFIER();
+        }
+
+        if (!withdrawVerifier.verifyProof(a, b, c, input)) {
+            revert Errors.INVALID_WITHDRAW_PROOFS();
+        }
+
+        User storage user = _getUserByPublicKey(publicKeyX, publicKeyY);
+        if (amount == Constants.UINT256_MAX) {
+            amount = user.balance;
+        }
+
+        if (amount >= user.balance || amount == 0) {
+            revert Errors.INSUFFICIENT_BALANCE();
+        }
+
+        usedNullifiers[nullifier] = true;
+        
+        uint256 leaf = PoseidonT5.hash([publickKeyX, publicKeyY, user.balance, user.nonce]);
+
+        user.balance -= amount;
+        msg.sender.call{value: amount}("");
+
+        uint256 newLeaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
+
+        balanceTree.update(leaf, newLeaf, proofSiblings, proofPathIndices);
+
+        emit Withdraw(user);
+    }
+
+    function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal returns (Users storage) {
+        uint256 publicKeyHash = keccak256(abi.encodePacked(publicKeyX, publicKeyY));
+        return balanceTreeUsers[publicKeyHash];
+    }
 }

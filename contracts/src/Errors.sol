@@ -6,4 +6,7 @@ library Errors {
     error INVALID_VALIE();
     error INVALID_MERKLE_TREE();
     error INVALID_ROLLUP_PROOFS();
+    error INVALID_WITHDRAW_PROOFS();
+    error INVALID_NULLIFIER();
+    error INSUFFICIENT_BALANCE();
 }
