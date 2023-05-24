@@ -126,7 +126,7 @@ template ProcessTx(depth) {
         txData[TX_DATA_TO_IDX],
         txRecipientLeaf,
         VERIFY_INCLUSION
-    )
+    );
 
     // 4. Create new txSender and txRecipient leaves
     var newTxSenderBalance = txSenderBalance - txData[TX_DATA_AMOUNT_WEI_IDX] - txData[TX_DATA_FEE_WEI_IDX];
@@ -158,9 +158,6 @@ template ProcessTx(depth) {
     intermediateBalanceTreeRoot === computedIntermediateBalanceTreeRoot;
 
     // 5.2 Update txRecipient
-    signal txRecipientLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
-        ([txRecipientPublicKey[0], txRecipientPublicKey[1], txRecipientBalance, txRecipientNonce]);
-
     newBalanceTreeRoot <== SMTProcessor(depth)(
         intermediateBalanceTreeRoot,
         intermediateBalanceTreePathElements,
