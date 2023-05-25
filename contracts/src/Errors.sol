@@ -9,4 +9,7 @@ library Errors {
     error INVALID_WITHDRAW_PROOFS();
     error INVALID_NULLIFIER();
     error INSUFFICIENT_BALANCE();
+    error REENTRANT_CALL();
+    error WITHDRAWAL_FAILED();
+    error ONLY_OWNER();
 }

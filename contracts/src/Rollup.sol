@@ -20,14 +20,13 @@ contract Rollup {
 
     uint256 private _status;
 
+    address owner;
+
     IncrementalTreeData balanceTree;
 
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
     
-    PoseidonT6 poseidonT6;
-    PoseidonT5 poseidonT5;
-
     event Deposit(User user);
 
     event Withdraw(User user);
@@ -48,18 +47,17 @@ contract Rollup {
 
     uint256 accruedFees;
 
-    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, PoseidonT6 _poseidonT6, PoseidonT5 _poseidonT5, uint256 _depth) {
+    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, uint256 _depth) {
         txVerifier = _txVerifier;
         withdrawVerifier = _withdrawVerifier;
-        poseidonT5 = _poseidonT5;
-        poseidonT6 = _poseidonT6;
         balanceTree.initWithDefaultZeroes(_depth);
         _status = _NOT_ENTERED;
+        owner = msg.sender;
     }
 
     modifier nonReentrant() {
         if (_status == _ENTERED) {
-            revert REENTRANT_CALL();
+            revert Errors.REENTRANT_CALL();
         }
         _status = _ENTERED;
         _;
@@ -71,7 +69,7 @@ contract Rollup {
         uint[2][2] memory b,
         uint[2] memory c,
         uint[65] memory input,
-        uint[4][6] memory pathIndices
+        uint8[][6] memory pathIndices
     ) public {
         uint256 balanceTreeRoot = input[1];
         uint256 depth = balanceTree.depth;
@@ -100,8 +98,8 @@ contract Rollup {
         uint256 senderPublicKeyHash;
         uint256 recipientPublicKeyHash;
 
-        uint256[depth] senderPathElements;
-        uint256[depth] recipientPathElements;
+        uint256[] memory senderPathElements = new uint256[](depth);
+        uint256[] memory recipientPathElements = new uint256[](depth);
 
         uint256 txDataOffset = 3;
         uint256 txDataLength = 8;
@@ -119,7 +117,7 @@ contract Rollup {
 
             // sendersPublicKey[i]
             curOffset += (txDataLength * (batchSize - i)) + (2 * i);
-            senderPublicKeyHash = keccak256(abi.encodePacked(input[curOffset], input[curOffset + 1]));
+            senderPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
             // sendersPathElements[i]
             curOffset += (2 * (batchSize - i)) + (depth * i);
@@ -129,7 +127,7 @@ contract Rollup {
 
             // recipientPublicKey[i]
             curOffset += (depth * (batchSize - i)) + (2 * i);
-            recipientPublicKeyHash = keccak256(abi.encodePacked(input[curOffset], input[curOffset + 1]));
+            recipientPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
             // recipientPathElements[i]
             curOffset += ((2 + depth) * (batchSize - i)) + (depth * i);
@@ -140,7 +138,7 @@ contract Rollup {
             // update txSender
             User storage sender = balanceTreeUsers[senderPublicKeyHash];
 
-            senderLeaf = poseidonT6.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+            senderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
 
             // underflow can't happen
             // zkp verified all inputs
@@ -152,20 +150,20 @@ contract Rollup {
 
             accruedFees += fee;
 
-            newSenderLeaf = poseidonT6.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+            newSenderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
 
-            balanceTree.update(leaf, newLeaf, senderPathElements, pathIndices[2 * i]);
+            balanceTree.update(senderLeaf, newSenderLeaf, senderPathElements, pathIndices[2 * i]);
 
             // update txRecipient
             User storage recipient = balanceTreeUsers[recipientPublicKeyHash];
 
-            recipientLeaf = poseidonT6.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+            recipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
 
             unchecked {
                 recipient.balance += amount;
             }
 
-            newRecipientLeaf = poseidonT6.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+            newRecipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
 
             balanceTree.update(recipientLeaf, newRecipientLeaf, recipientPathElements, pathIndices[2 * i + 1]);
         }
@@ -183,13 +181,14 @@ contract Rollup {
             revert Errors.INVALID_VALIE();
         }
 
-        User storage user = _getUserByPublicKey(publicKeyX, publicKeyY);
+        uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
+        User storage user = balanceTreeUsers[publicKeyHash];
         
-        uint256 leaf = poseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
+        uint256 leaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
         
         user.balance += msg.value;
 
-        uint256 newLeaf = poseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
+        uint256 newLeaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
 
         if (isPublicKeysRegistered[publicKeyHash]) {
             balanceTree.update(leaf, newLeaf, proofSiblings, proofPathIndices);
@@ -205,9 +204,8 @@ contract Rollup {
         emit Deposit(user);
     }
 
-    // TODO: withdraw need to generate zkp, need to write a circuit for withdraw
+    // withdraw all deposit
     function withdraw(
-        uint256 amount,
         uint256[] calldata proofSiblings,
         uint8[] calldata proofPathIndices,
         uint256[2] memory a,
@@ -262,10 +260,14 @@ contract Rollup {
 
         usedNullifiers[nullifier] = true;
         
-        uint256 leaf = PoseidonT5.hash([publickKeyX, publicKeyY, user.balance, user.nonce]);
+        uint256 leaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
 
         user.balance -= amount;
-        msg.sender.call{value: amount}("");
+
+        (bool success,) = msg.sender.call{value: amount}("");
+        if (!success) {
+            revert Errors.WITHDRAWAL_FAILED();
+        } 
 
         uint256 newLeaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
 
@@ -274,8 +276,25 @@ contract Rollup {
         emit Withdraw(user);
     }
 
-    function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal returns (Users storage) {
-        uint256 publicKeyHash = keccak256(abi.encodePacked(publicKeyX, publicKeyY));
+    function _generateKeyHash(uint256 publicKeyX, uint256 publicKeyY) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(publicKeyX, publicKeyY)));
+    }
+
+    function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal view returns (User storage) {
+        uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
         return balanceTreeUsers[publicKeyHash];
+    }
+
+    function withdrawAccredFees() external {
+        if (msg.sender != owner) {
+            revert Errors.ONLY_OWNER();
+        }
+
+        (bool success,) = msg.sender.call{value: accruedFees}("");
+        if (!success) {
+            revert Errors.WITHDRAWAL_FAILED();
+        } 
+
+        accruedFees = 0;
     }
 }
