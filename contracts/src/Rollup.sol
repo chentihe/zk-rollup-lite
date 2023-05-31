@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.8.0 <=0.9;
 
-import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/incremental-merkle-tree.sol/contracts/IncrementalBinaryTree.sol";
+import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/packages/incremental-merkle-tree.sol/contracts/IncrementalBinaryTree.sol";
 
 import {PoseidonT5} from "poseidon-solidity/PoseidonT5.sol";
 import {PoseidonT6} from "poseidon-solidity/PoseidonT6.sol";
@@ -41,8 +41,8 @@ contract Rollup {
     }
 
     // hashedPublicKey => User
-    mapping(uint256 => User) balanceTreeUsers;
-    mapping(uint256 => bool) isPublicKeysRegistered;
+    mapping(uint256 => User) public balanceTreeUsers;
+    mapping(uint256 => bool) public isPublicKeysRegistered;
     mapping(uint256 => bool) usedNullifiers;
 
     uint256 accruedFees;
@@ -64,121 +64,137 @@ contract Rollup {
         _status = _NOT_ENTERED;
     }
 
-    function rollUp (
-        uint[2] memory a,
-        uint[2][2] memory b,
-        uint[2] memory c,
-        uint[65] memory input,
-        uint8[][6] memory pathIndices
-    ) public {
-        uint256 balanceTreeRoot = input[1];
-        uint256 depth = balanceTree.depth;
+    // function rollUp (
+    //     uint[2] memory a,
+    //     uint[2][2] memory b,
+    //     uint[2] memory c,
+    //     uint[65] memory input,
+    //     uint8[][6] memory pathIndices
+    // ) external {
+    //     uint256 balanceTreeRoot = input[1];
+    //     uint256 depth = balanceTree.depth;
 
-        if (balanceTree.root != balanceTreeRoot) {
-            revert Errors.INVALID_MERKLE_TREE();
-        }
+    //     if (balanceTree.root != balanceTreeRoot) {
+    //         revert Errors.INVALID_MERKLE_TREE();
+    //     }
 
-        if (!txVerifier.verifyProof(a, b, c, input)) {
-            revert Errors.INVALID_ROLLUP_PROOFS();
-        }
+    //     if (!txVerifier.verifyProof(a, b, c, input)) {
+    //         revert Errors.INVALID_ROLLUP_PROOFS();
+    //     }
 
-        // Transaction
-        uint256 from;
-        uint256 to;
-        uint256 amount;
-        uint256 fee;
-        uint256 nonce;
-        uint256 curOffset;
+    //     // Transaction
+    //     uint256 from;
+    //     uint256 to;
+    //     uint256 amount;
+    //     uint256 fee;
+    //     uint256 nonce;
+    //     uint256 curOffset;
 
-        uint256 senderLeaf;
-        uint256 newSenderLeaf;
-        uint256 recipientLeaf;
-        uint256 newRecipientLeaf;
+    //     uint256 senderLeaf;
+    //     uint256 newSenderLeaf;
+    //     uint256 recipientLeaf;
+    //     uint256 newRecipientLeaf;
 
-        uint256 senderPublicKeyHash;
-        uint256 recipientPublicKeyHash;
+    //     uint256 senderPublicKeyHash;
+    //     uint256 recipientPublicKeyHash;
 
-        uint256[] memory senderPathElements = new uint256[](depth);
-        uint256[] memory recipientPathElements = new uint256[](depth);
+    //     uint256[] memory senderPathElements = new uint256[](depth);
+    //     uint256[] memory recipientPathElements = new uint256[](depth);
 
-        uint256 txDataOffset = 3;
-        uint256 txDataLength = 8;
-        uint256 batchSize = 2;
+    //     uint256 txDataOffset = 3;
+    //     uint256 txDataLength = 8;
+    //     uint256 batchSize = 2;
 
-        for (uint8 i = 0; i < batchSize; i++) {
-            // txData[i]
-            curOffset = txDataOffset + (txDataLength * i);
+    //     for (uint8 i = 0; i < batchSize; i++) {
+    //         // txData[i]
+    //         curOffset = txDataOffset + (txDataLength * i);
 
-            from = input[curOffset];
-            to = input[curOffset + 1];
-            amount = input[curOffset + 2];
-            fee = input[curOffset + 3];
-            nonce = input[curOffset + 4];
+    //         from = input[curOffset];
+    //         to = input[curOffset + 1];
+    //         amount = input[curOffset + 2];
+    //         fee = input[curOffset + 3];
+    //         nonce = input[curOffset + 4];
 
-            // sendersPublicKey[i]
-            curOffset += (txDataLength * (batchSize - i)) + (2 * i);
-            senderPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+    //         // sendersPublicKey[i]
+    //         curOffset += (txDataLength * (batchSize - i)) + (2 * i);
+    //         senderPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
-            // sendersPathElements[i]
-            curOffset += (2 * (batchSize - i)) + (depth * i);
-            for (uint8 j = 0; j < depth; j++) {
-                senderPathElements[j] = input[curOffset + j];
-            }
+    //         // sendersPathElements[i]
+    //         curOffset += (2 * (batchSize - i)) + (depth * i);
+    //         for (uint8 j = 0; j < depth; j++) {
+    //             senderPathElements[j] = input[curOffset + j];
+    //         }
 
-            // recipientPublicKey[i]
-            curOffset += (depth * (batchSize - i)) + (2 * i);
-            recipientPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+    //         // recipientPublicKey[i]
+    //         curOffset += (depth * (batchSize - i)) + (2 * i);
+    //         recipientPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
-            // recipientPathElements[i]
-            curOffset += ((2 + depth) * (batchSize - i)) + (depth * i);
-            for (uint8 k = 0; k < depth; k++) {
-                recipientPathElements[k] = input[curOffset + k];
-            }
+    //         // recipientPathElements[i]
+    //         curOffset += ((2 + depth) * (batchSize - i)) + (depth * i);
+    //         for (uint8 k = 0; k < depth; k++) {
+    //             recipientPathElements[k] = input[curOffset + k];
+    //         }
 
-            // update txSender
-            User storage sender = balanceTreeUsers[senderPublicKeyHash];
+    //         // update txSender
+    //         User storage sender = balanceTreeUsers[senderPublicKeyHash];
 
-            senderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+    //         senderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
 
-            // underflow can't happen
-            // zkp verified all inputs
-            unchecked {
-                sender.balance -= amount;
-                sender.balance -= fee; 
-            }
-            sender.nonce = nonce;
+    //         // underflow can't happen
+    //         // zkp verified all inputs
+    //         unchecked {
+    //             sender.balance -= amount;
+    //             sender.balance -= fee; 
+    //         }
+    //         sender.nonce = nonce;
 
-            accruedFees += fee;
+    //         accruedFees += fee;
 
-            newSenderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+    //         newSenderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
 
-            balanceTree.update(senderLeaf, newSenderLeaf, senderPathElements, pathIndices[2 * i]);
+    //         balanceTree.update(senderLeaf, newSenderLeaf, senderPathElements, pathIndices[2 * i]);
 
-            // update txRecipient
-            User storage recipient = balanceTreeUsers[recipientPublicKeyHash];
+    //         // update txRecipient
+    //         User storage recipient = balanceTreeUsers[recipientPublicKeyHash];
 
-            recipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+    //         recipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
 
-            unchecked {
-                recipient.balance += amount;
-            }
+    //         unchecked {
+    //             recipient.balance += amount;
+    //         }
 
-            newRecipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+    //         newRecipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
 
-            balanceTree.update(recipientLeaf, newRecipientLeaf, recipientPathElements, pathIndices[2 * i + 1]);
-        }
-    }
+    //         balanceTree.update(recipientLeaf, newRecipientLeaf, recipientPathElements, pathIndices[2 * i + 1]);
+    //     }
+    // }
 
     // if the user is the first time to deposit, 
     // leave empty array for proofSiblings & proofPathindices
+    function deposit(
+        uint256 publicKeyX,
+        uint256 publicKeyY
+    ) external payable {
+        _deposit(publicKeyX, publicKeyY, new uint256[](0), new uint8[](0));
+    }
+
     function deposit(
         uint256 publicKeyX,
         uint256 publicKeyY,
         uint256[] calldata proofSiblings,
         uint8[] calldata proofPathIndices
     ) external payable {
+        _deposit(publicKeyX, publicKeyY, proofSiblings, proofPathIndices);
+    }
+
+    function _deposit(
+        uint256 publicKeyX,
+        uint256 publicKeyY,
+        uint256[] memory proofSiblings,
+        uint8[] memory proofPathIndices
+    ) internal {
         if (msg.value == 0) {
-            revert Errors.INVALID_VALIE();
+            revert Errors.INVALID_VALUE();
         }
 
         uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
@@ -213,7 +229,7 @@ contract Rollup {
         uint256[2] memory c,
         uint256[3] memory input
     ) external {
-        _withdraw(Constants.UINT256_MAX, proofSiblings, proofPathIndices, a, b, c, input);
+        _withdraw(Constants.UINT256_MAX, a, b, c, input, proofSiblings, proofPathIndices);
     }
 
     function withdraw(
@@ -225,17 +241,17 @@ contract Rollup {
         uint256[2] memory c,
         uint256[3] memory input
     ) external {
-        _withdraw(amount, proofSiblings, proofPathIndices, a, b, c, input);
+        _withdraw(amount, a, b, c, input, proofSiblings, proofPathIndices);
     }
 
     function _withdraw(
         uint256 amount,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices,
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[3] memory input
+        uint256[3] memory input,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices
     ) internal nonReentrant {
         uint256 publicKeyX = input[0];
         uint256 publicKeyY = input[1];
@@ -276,8 +292,16 @@ contract Rollup {
         emit Withdraw(user);
     }
 
+    function generateKeyHash(uint256 publicKeyX, uint256 publicKeyY) external pure returns (uint256) {
+        return _generateKeyHash(publicKeyX, publicKeyY);
+    }
+
     function _generateKeyHash(uint256 publicKeyX, uint256 publicKeyY) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked(publicKeyX, publicKeyY)));
+    }
+
+    function getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) external view returns (User memory) {
+        return _getUserByPublicKey(publicKeyX, publicKeyY);
     }
 
     function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal view returns (User storage) {

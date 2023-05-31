@@ -3,7 +3,7 @@
 pragma solidity >0.8.0 <=0.9;
 
 library Errors {
-    error INVALID_VALIE();
+    error INVALID_VALUE();
     error INVALID_MERKLE_TREE();
     error INVALID_ROLLUP_PROOFS();
     error INVALID_WITHDRAW_PROOFS();
