@@ -50,7 +50,7 @@ contract Rollup {
     constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, uint256 _depth) {
         txVerifier = _txVerifier;
         withdrawVerifier = _withdrawVerifier;
-        balanceTree.initWithDefaultZeroes(_depth);
+        balanceTree.init(_depth, 0);
         _status = _NOT_ENTERED;
         owner = msg.sender;
     }
@@ -222,24 +222,24 @@ contract Rollup {
 
     // withdraw all deposit
     function withdraw(
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices,
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[3] memory input
+        uint256[3] memory input,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices
     ) external {
         _withdraw(Constants.UINT256_MAX, a, b, c, input, proofSiblings, proofPathIndices);
     }
 
     function withdraw(
         uint256 amount,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices,
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[3] memory input
+        uint256[3] memory input,
+        uint256[] calldata proofSiblings,
+        uint8[] calldata proofPathIndices
     ) external {
         _withdraw(amount, a, b, c, input, proofSiblings, proofPathIndices);
     }
@@ -270,7 +270,7 @@ contract Rollup {
             amount = user.balance;
         }
 
-        if (amount >= user.balance || amount == 0) {
+        if (amount > user.balance || amount == 0) {
             revert Errors.INSUFFICIENT_BALANCE();
         }
 

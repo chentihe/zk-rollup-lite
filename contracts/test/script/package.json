@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "npx tsc --target es6 --esModuleInterop ./*.ts",
-    "generate-public-key": "node generate_public_key_cli.js"
+    "generate-public-key": "node generate_public_key.js",
+    "generate-merkle-tree-proof": "node generate_merkle_tree_proof.js",
+    "generate-zkp": "node generate_zkp.js"
   },
   "author": "",
   "license": "ISC",
@@ -14,8 +16,10 @@
     "ethers": "^6.4.0"
   },
   "devDependencies": {
-    "circomlibjs": "^0.1.7",
+    "@zk-kit/incremental-merkle-tree": "^1.1.0",
+    "circomlibjs": "^0.0.8",
     "maci-crypto": "^1.1.2",
+    "snarkjs": "^0.7.0",
     "typescript": "^5.0.4"
   }
 }

@@ -17,6 +17,7 @@
     "@types/node": "^20.1.4",
     "chai": "^4.3.7",
     "circom_tester": "^0.0.19",
+    "circomlibjs": "^0.1.7",
     "ethers": "^6.3.0",
     "ffjavascript": "^0.2.57",
     "maci-crypto": "^1.1.2",
