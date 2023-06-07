@@ -3,7 +3,7 @@ const { genPrivKey } = require("maci-crypto");
 const { eddsa, poseidon } = require("circomlibjs");
 const { IncrementalMerkleTree } = require("@zk-kit/incremental-merkle-tree");
 
-const generatePublicKey = async (action) => {
+const generatePublicKey = async () => {
     const ZERO_VALUE = BigInt(0)
     const tree = new IncrementalMerkleTree(poseidon, 6, ZERO_VALUE, 2)
     const encoder = ethers.AbiCoder.defaultAbiCoder();
@@ -14,14 +14,6 @@ const generatePublicKey = async (action) => {
     tree.insert(leaf);
 
     let newLeaf = ethers.toBigInt(poseidon([publicKey[0], publicKey[1], 2e18, 0]));
-    switch (action) {
-        case "withdraw":
-            newLeaf = ethers.toBigInt(poseidon([publicKey[0], publicKey[1], 0.5e18, 0]));
-            break;
-        case "deposit":
-            newLeaf = ethers.toBigInt(poseidon([publicKey[0], publicKey[1], 2e18, 0]));
-            break;
-    }
             
     tree.update(0, newLeaf);
     const {pathIndices, siblings} = tree.createProof(0)
@@ -35,6 +27,4 @@ const generatePublicKey = async (action) => {
     process.stdout.write(encoder.encode(['uint256[2]', 'uint8[6]', 'uint256[6]'], [publicKey, pathIndices, bigIntSiblings]));
 }
 
-const action = process.argv[2];
-
-generatePublicKey(action)
+generatePublicKey()

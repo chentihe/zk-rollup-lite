@@ -39,14 +39,13 @@ contract RollupTest is Test {
 
     function testDepositWithRegisteredUser() public {
         uint256 depth = 6;
-        string[] memory runJsInputs = new string[](7);
+        string[] memory runJsInputs = new string[](6);
         runJsInputs[0] = "npm";
         runJsInputs[1] = "--prefix";
         runJsInputs[2] = "contracts/test/script/";
         runJsInputs[3] = "--silent";
         runJsInputs[4] = "run";
         runJsInputs[5] = "generate-merkle-tree-proof";
-        runJsInputs[6] = "deposit";
         bytes memory jsResult = vm.ffi(runJsInputs);
         (uint256[2] memory publicKey, uint8[6] memory pathIndices, uint256[6] memory siblings) = abi.decode(jsResult, (uint256[2], uint8[6], uint256[6]));
         uint256 publicKeyX = publicKey[0];
@@ -78,7 +77,7 @@ contract RollupTest is Test {
         runJsInputs[2] = "contracts/test/script/";
         runJsInputs[3] = "--silent";
         runJsInputs[4] = "run";
-        runJsInputs[5] = "generate-zkp";
+        runJsInputs[5] = "generate-zkp-withdraw";
         runJsInputs[6] = "withdraw";
         runJsInputs[7] = "0.5";
         bytes memory jsResult = vm.ffi(runJsInputs);
@@ -113,7 +112,7 @@ contract RollupTest is Test {
         runJsInputs[2] = "contracts/test/script/";
         runJsInputs[3] = "--silent";
         runJsInputs[4] = "run";
-        runJsInputs[5] = "generate-zkp";
+        runJsInputs[5] = "generate-zkp-withdraw";
         runJsInputs[6] = "withdraw-all";
         runJsInputs[7] = "0.5";
         bytes memory jsResult = vm.ffi(runJsInputs);

@@ -20,7 +20,6 @@ const generateZkp = async (action, amount) => {
             const extension = file.split(".")[1]
             return (extension == "wasm" || extension == "zkey" || extension == "json")
         })
-
     const ZERO_VALUE = BigInt(0)
     const tree = new IncrementalMerkleTree(poseidon, 6, ZERO_VALUE, 2)
     const encoder = ethers.AbiCoder.defaultAbiCoder();

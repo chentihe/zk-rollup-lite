@@ -64,110 +64,108 @@ contract Rollup {
         _status = _NOT_ENTERED;
     }
 
-    // function rollUp (
-    //     uint[2] memory a,
-    //     uint[2][2] memory b,
-    //     uint[2] memory c,
-    //     uint[65] memory input,
-    //     uint8[][6] memory pathIndices
-    // ) external {
-    //     uint256 balanceTreeRoot = input[1];
-    //     uint256 depth = balanceTree.depth;
+    function rollUp (
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint8[][] memory pathIndices,
+        uint[65] memory input
+    ) external {
+        // depth = 6
+        // balanceRoot = input[1]
+        if (balanceTree.root != input[1]) {
+            revert Errors.INVALID_MERKLE_TREE();
+        }
 
-    //     if (balanceTree.root != balanceTreeRoot) {
-    //         revert Errors.INVALID_MERKLE_TREE();
-    //     }
+        if (!txVerifier.verifyProof(a, b, c, input)) {
+            revert Errors.INVALID_ROLLUP_PROOFS();
+        }
 
-    //     if (!txVerifier.verifyProof(a, b, c, input)) {
-    //         revert Errors.INVALID_ROLLUP_PROOFS();
-    //     }
+        // Transaction
+        uint256 amount;
+        uint256 fee;
+        uint256 nonce;
+        uint256 curOffset;
 
-    //     // Transaction
-    //     uint256 from;
-    //     uint256 to;
-    //     uint256 amount;
-    //     uint256 fee;
-    //     uint256 nonce;
-    //     uint256 curOffset;
+        uint256 leaf;
+        uint256 newLeaf;
 
-    //     uint256 senderLeaf;
-    //     uint256 newSenderLeaf;
-    //     uint256 recipientLeaf;
-    //     uint256 newRecipientLeaf;
+        uint256 publicKeyHash;
 
-    //     uint256 senderPublicKeyHash;
-    //     uint256 recipientPublicKeyHash;
+        uint256[] memory pathElements = new uint256[](6);
+        uint8[] memory pathIndex;
 
-    //     uint256[] memory senderPathElements = new uint256[](depth);
-    //     uint256[] memory recipientPathElements = new uint256[](depth);
+        uint256 txDataOffset = 3;
+        uint256 batchSize = 2;
 
-    //     uint256 txDataOffset = 3;
-    //     uint256 txDataLength = 8;
-    //     uint256 batchSize = 2;
+        // batchSize = 2
+        for (uint8 i = 0; i < batchSize; i++) {
+            // txData[i] txDataOffset = 3
+            // txDataLength = 8
+            curOffset = txDataOffset + (8 * i);
 
-    //     for (uint8 i = 0; i < batchSize; i++) {
-    //         // txData[i]
-    //         curOffset = txDataOffset + (txDataLength * i);
+            amount = input[curOffset + 2];
+            fee = input[curOffset + 3];
+            nonce = input[curOffset + 4];
 
-    //         from = input[curOffset];
-    //         to = input[curOffset + 1];
-    //         amount = input[curOffset + 2];
-    //         fee = input[curOffset + 3];
-    //         nonce = input[curOffset + 4];
+            // sendersPublicKey[i]
+            curOffset += (8 * (batchSize - i)) + (2 * i);
+            publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
-    //         // sendersPublicKey[i]
-    //         curOffset += (txDataLength * (batchSize - i)) + (2 * i);
-    //         senderPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+            // sendersPathElements[i]
+            // 6 = depth
+            curOffset += (2 * (batchSize - i)) + (6 * i);
+            for (uint8 j = 0; j < 6; j++) {
+                pathElements[j] = input[curOffset + j];
+            }
 
-    //         // sendersPathElements[i]
-    //         curOffset += (2 * (batchSize - i)) + (depth * i);
-    //         for (uint8 j = 0; j < depth; j++) {
-    //             senderPathElements[j] = input[curOffset + j];
-    //         }
+            // update txSender
+            User storage user = balanceTreeUsers[publicKeyHash];
 
-    //         // recipientPublicKey[i]
-    //         curOffset += (depth * (batchSize - i)) + (2 * i);
-    //         recipientPublicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+            leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
 
-    //         // recipientPathElements[i]
-    //         curOffset += ((2 + depth) * (batchSize - i)) + (depth * i);
-    //         for (uint8 k = 0; k < depth; k++) {
-    //             recipientPathElements[k] = input[curOffset + k];
-    //         }
+            // underflow can't happen
+            // zkp verified all inputs
+            unchecked {
+                user.balance -= amount;
+                user.balance -= fee; 
+            }
+            user.nonce = nonce;
 
-    //         // update txSender
-    //         User storage sender = balanceTreeUsers[senderPublicKeyHash];
+            accruedFees += fee;
 
-    //         senderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+            newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
 
-    //         // underflow can't happen
-    //         // zkp verified all inputs
-    //         unchecked {
-    //             sender.balance -= amount;
-    //             sender.balance -= fee; 
-    //         }
-    //         sender.nonce = nonce;
+            pathIndex = pathIndices[2 * i];
 
-    //         accruedFees += fee;
+            balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
 
-    //         newSenderLeaf = PoseidonT5.hash([sender.publicKeyX, sender.publicKeyY, sender.balance, sender.nonce]);
+            // recipientPublicKey[i]
+            curOffset += (6 * (batchSize - i)) + (2 * i);
+            publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
 
-    //         balanceTree.update(senderLeaf, newSenderLeaf, senderPathElements, pathIndices[2 * i]);
+            // recipientPathElements[i]
+            curOffset += ((2 + 6) * (batchSize - i)) + (6 * i);
+            for (uint8 j = 0; j < 6; j++) {
+                pathElements[j] = input[curOffset + j];
+            }
 
-    //         // update txRecipient
-    //         User storage recipient = balanceTreeUsers[recipientPublicKeyHash];
+            // update txRecipient
+            user = balanceTreeUsers[publicKeyHash];
 
-    //         recipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+            leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
 
-    //         unchecked {
-    //             recipient.balance += amount;
-    //         }
+            unchecked {
+                user.balance += amount;
+            }
 
-    //         newRecipientLeaf = PoseidonT5.hash([recipient.publicKeyX, recipient.publicKeyY, recipient.balance, recipient.nonce]);
+            newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
 
-    //         balanceTree.update(recipientLeaf, newRecipientLeaf, recipientPathElements, pathIndices[2 * i + 1]);
-    //     }
-    // }
+            pathIndex = pathIndices[2 * i + 1];
+
+            balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
+        }
+    }
 
     // if the user is the first time to deposit, 
     // leave empty array for proofSiblings & proofPathindices
