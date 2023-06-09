@@ -7,3 +7,6 @@
 [submodule "contracts/lib/poseidon-solidity"]
 	path = contracts/lib/poseidon-solidity
 	url = https://github.com/vimwitch/poseidon-solidity
+[submodule "contracts/lib/contracts"]
+	path = contracts/lib/contracts
+	url = https://github.com/iden3/contracts
