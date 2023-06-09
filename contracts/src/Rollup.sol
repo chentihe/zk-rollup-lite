@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.8.0 <=0.9;
 
-import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/packages/incremental-merkle-tree.sol/contracts/IncrementalBinaryTree.sol";
+import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/IncrementalBinaryTree.sol";
 
 import {PoseidonT5} from "poseidon-solidity/PoseidonT5.sol";
 import {PoseidonT6} from "poseidon-solidity/PoseidonT6.sol";
@@ -13,7 +13,7 @@ import {Constants} from "./Constants.sol";
 import {Errors} from "./Errors.sol";
 
 contract Rollup {
-    using IncrementalBinaryTree for IncrementalTreeData;
+    using Smt for Smt.SmtData;
 
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
