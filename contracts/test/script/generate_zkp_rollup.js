@@ -20,8 +20,8 @@ const generateUser = (index) => {
 }
 
 const generateTransaction = (leaves, users) => {
-    const sender = randomUser(users)
-    const recipient = randomUser(users)
+    const sender = users[0]
+    const recipient = users[1]
     const amount = BigInt(1e18)
     const fee = BigInt(0.5e18)
     const senderNonce = leaves[sender.index].nonce
@@ -63,7 +63,7 @@ const generateZkpRollup = async (amount) => {
             return concatFile
         }).filter(file => {
             const extension = file.split(".")[1]
-            return (extension == "wasm" || extension == "zkey" || extension == "json")
+            return (extension == "wasm" || extension == "zkey")
         })
     
     // Set zero value
@@ -80,7 +80,7 @@ const generateZkpRollup = async (amount) => {
     users.forEach(user => {
         const leaf = {
             publicKey: user.publicKey,
-            balance: BigInt(1e18),
+            balance: BigInt(10e18),
             nonce: 0
         }
         balanceTreeLeaves.push(leaf)
@@ -124,15 +124,6 @@ const generateZkpRollup = async (amount) => {
         // Get current balance tree root
         const balanceTreeRoot = tree.root
 
-        // Get sender and recipient siblings
-        const senderProof = tree.createProof(0)
-        const senderSiblings = senderProof.siblings
-        pathIndices.push(senderProof.pathIndices)
-
-        const recipientProof = tree.createProof(1)
-        const recipientSiblings = recipientProof.siblings
-        pathIndices.push(recipientProof.pathIndices)
-
         // Update txSender
         const senderLeaf = balanceTreeLeaves[tx.from]
         const oldSenderLeaf = Object.assign({}, senderLeaf)
@@ -144,6 +135,10 @@ const generateZkpRollup = async (amount) => {
 
         tree.update(tx.from, hashedIntermediateLeaf)
         balanceTreeLeaves[tx.from] = senderLeaf
+
+        const senderProof = tree.createProof(0)
+        const senderSiblings = senderProof.siblings
+        pathIndices.push(senderProof.pathIndices)
 
         // Get intermediate balance tree root & siblings
         const intermediateBalanceTreeRoot = tree.root
@@ -158,6 +153,10 @@ const generateZkpRollup = async (amount) => {
 
         tree.update(tx.to, hashedFinalRecipientLeaf)
         balanceTreeLeaves[tx.to] = recipientLeaf
+
+        const recipientProof = tree.createProof(1)
+        const recipientSiblings = recipientProof.siblings
+        pathIndices.push(recipientProof.pathIndices)
 
         // Update circuit inputs
         circuitInputs.balanceTreeRoots.push(balanceTreeRoot)
@@ -185,13 +184,13 @@ const generateZkpRollup = async (amount) => {
         pi_c: [proof.pi_c[0], proof.pi_c[1]]
     }
     
-    const bigIntSiblings = []
-    bigIntSiblings.push(siblings[0][0])
-    siblings.shift()
-    siblings.forEach(sibling => {
-        const bigIntSibling = ethers.toBigInt(sibling[0])
-        bigIntSiblings.push(bigIntSibling)
-    })
+    // const bigIntSiblings = []
+    // bigIntSiblings.push(siblings[0][0])
+    // siblings.shift()
+    // siblings.forEach(sibling => {
+    //     const bigIntSibling = ethers.toBigInt(sibling[0])
+    //     bigIntSiblings.push(bigIntSibling)
+    // })
 
     // TODO: modify encode elements
     process.stdout.write(encoder.encode(['uint256[2]', 'uint8[6]', 'uint256[6]', 'uint256[2]', 'uint256[2][2]', 'uint256[2]', 'uint256[3]'], [publicKey, pathIndices, bigIntSiblings, packedSolidityProof.pi_a, packedSolidityProof.pi_b, packedSolidityProof.pi_c, publicSignals]));
@@ -200,4 +199,4 @@ const generateZkpRollup = async (amount) => {
 
 const amount = process.argv[2]
 
-generateZkpRollup(action, amount)
+generateZkpRollup(amount)
