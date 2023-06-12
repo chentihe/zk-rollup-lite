@@ -1,22 +1,20 @@
 pragma circom  2.1.5;
 
-include "../node_modules/circomlib/circuits/eddsamimc.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
 include "../node_modules/circomlib/circuits/smt/smtprocessor.circom";
 
-template Withdraw(depth) {
-    signal input publicKey[2];
-    signal input signature[3];
-    signal input nullifier;
+// use powersOfTau 2**15 constraints
 
+template Deposit(depth) {
     signal input balanceTreeRoot;
     signal output newBalanceTreeRoot;
 
     // [public_key_x, public_key_y, balance, nonce]
     var BALANCE_TREE_LEAF_DATA_LENGTH = 4;
 
-    // The balance is the amount after withdrawal
+    // Account info
+    signal input publicKey[2];
     signal input balance;
     signal input nonce;
     signal input pathElements[depth];
@@ -24,29 +22,11 @@ template Withdraw(depth) {
     signal input oldValue;
     signal input isOld0;
     signal input newKey;
-
     signal input func[2];
-    var SIGNATURE_R8X_IDX = 0;
-    var SIGNATURE_R8Y_IDX = 1;
-    var SIGNATURE_S_IDX = 2;
-
-    var ENABLED = 1;
-
-    // 1. Check the signature is valid
-    EdDSAMiMCVerifier()(
-        ENABLED, 
-        publicKey[0], 
-        publicKey[1], 
-        signature[SIGNATURE_S_IDX], 
-        signature[SIGNATURE_R8X_IDX], 
-        signature[SIGNATURE_R8Y_IDX], 
-        nullifier
-    );
-
 
     // 1 Make sure the balance is valid
     var TRUE = 1;
-    signal isBalanceValid <== GreaterThan(252)([balance, -1]);
+    signal isBalanceValid <== GreaterThan(252)([balance, 0]);
     TRUE === isBalanceValid;
 
     // 2. Process the SMT
@@ -65,4 +45,4 @@ template Withdraw(depth) {
     );
 }
 
-component main {public [balanceTreeRoot, publicKey, nullifier]} = Withdraw(6);
+component main {public [balanceTreeRoot, publicKey]} = Deposit(6);
