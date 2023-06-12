@@ -8,8 +8,6 @@ remappings = [
     "forge-std/=contracts/lib/forge-std/src/",
     "poseidon-solidity/=contracts/lib/poseidon-solidity/contracts/",
     "zk-kit/=contracts/lib/zk-kit/packages/incremental-merkle-tree.sol/contracts",
-    "iden3-lib/=contracts/lib/contracts/contracts/lib"
 ]
-# via_ir = true
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

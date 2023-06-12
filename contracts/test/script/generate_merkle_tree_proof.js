@@ -1,30 +1,58 @@
 const { ethers } = require("ethers");
 const { genPrivKey } = require("maci-crypto");
-const { eddsa, poseidon } = require("circomlibjs");
-const { IncrementalMerkleTree } = require("@zk-kit/incremental-merkle-tree");
+const { eddsa, poseidon, smt } = require("circomlibjs");
+const { groth16 } = require("snarkjs");
+const path = require("path")
+const fs = require("fs")
 
-const generatePublicKey = async () => {
-    const ZERO_VALUE = BigInt(0)
-    const tree = new IncrementalMerkleTree(poseidon, 6, ZERO_VALUE, 2)
+const generateZkp = async () => {
+    // Read wasm, zkey, json files
+    const dir = path.join(__dirname, "../../../prover/build", "deposit")
+    const fileNames = fs.readdirSync(dir)
+        .map(file => {
+            const concatFile = dir + "/" + file
+            return concatFile
+        }).filter(file => {
+            const extension = file.split(".")[1]
+            return (extension == "wasm" || extension == "zkey")
+        })
+    
+    const depth = 6;
+    const tree = await smt.newMemEmptyTrie()
     const encoder = ethers.AbiCoder.defaultAbiCoder();
     const privateKey = genPrivKey().toString();
-    // Uint8Array => BigInt
-    const publicKey = eddsa.prv2pub(privateKey).flatMap(axis => ethers.toBigInt(axis))
-    const leaf = ethers.toBigInt(poseidon([publicKey[0], publicKey[1], 1e18, 0]));
-    tree.insert(leaf);
+    const publicKey = eddsa.prv2pub(privateKey)
+    const leaf = poseidon([publicKey[0], publicKey[1], 1e18, 0]);
+    const res = await tree.insert(0, leaf);
+    const siblings = res.siblings
+    while (siblings.length < depth) siblings.push(0)
 
-    let newLeaf = ethers.toBigInt(poseidon([publicKey[0], publicKey[1], 2e18, 0]));
-            
-    tree.update(0, newLeaf);
-    const {pathIndices, siblings} = tree.createProof(0)
-    const bigIntSiblings = []
-    bigIntSiblings.push(siblings[0][0])
-    siblings.shift()
-    siblings.forEach(sibling => {
-        const bigIntSibling = ethers.toBigInt(sibling[0])
-        bigIntSiblings.push(bigIntSibling)
-    })
-    process.stdout.write(encoder.encode(['uint256[2]', 'uint8[6]', 'uint256[6]'], [publicKey, pathIndices, bigIntSiblings]));
+    const circuitInputs = {
+        balanceTreeRoot: res.oldRoot,
+        publicKey: publicKey,
+        balance: BigInt(1e18),
+        nonce: 0,
+        pathElements: siblings,
+        oldKey: res.isOld0 ? 0 : res.oldKey,
+        oldValue: res.isOld0 ? 0 : res.oldValue,
+        isOld0: res.isOld0 ? 1 : 0,
+        newKey: res.oldKey,
+        func: [1, 0]
+    }
+
+    const {proof, publicSignals} = await groth16.fullProve(circuitInputs, fileNames[0], fileNames[1])
+    
+    const packedSolidityProof = {
+        pi_a: [proof.pi_a[0], proof.pi_a[1]],
+        pi_b: [
+            [proof.pi_b[0][1], proof.pi_b[0][0]],
+            [proof.pi_b[1][1], proof.pi_b[1][0]]
+        ],
+        pi_c: [proof.pi_c[0], proof.pi_c[1]]
+    }
+
+    process.stdout.write(encoder.encode(['uint256[2]', 'uint256[2][2]', 'uint256[2]', 'uint256[4]'], [packedSolidityProof.pi_a, packedSolidityProof.pi_b, packedSolidityProof.pi_c, publicSignals]));
+    process.exit(0)
 }
 
-generatePublicKey()
+generateZkp()

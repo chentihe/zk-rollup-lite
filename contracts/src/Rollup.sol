@@ -1,20 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.8.0 <=0.9;
 
-import {IncrementalBinaryTree, IncrementalTreeData} from "zk-kit/IncrementalBinaryTree.sol";
-
-import {PoseidonT5} from "poseidon-solidity/PoseidonT5.sol";
-import {PoseidonT6} from "poseidon-solidity/PoseidonT6.sol";
-
 import {TxVerifier} from "./verifiers/TxVerifier.sol";
 import {WithdrawVerifier} from "./verifiers/WithdrawVerifier.sol";
+import {DepositVerifier} from "./verifiers/DepositVerifier.sol";
 
 import {Constants} from "./Constants.sol";
 import {Errors} from "./Errors.sol";
 
 contract Rollup {
-    using Smt for Smt.SmtData;
-
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
 
@@ -22,10 +16,11 @@ contract Rollup {
 
     address owner;
 
-    IncrementalTreeData balanceTree;
+    uint256 public balanceTreeRoot;
 
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
+    DepositVerifier depositVerifier;
     
     event Deposit(User user);
 
@@ -47,10 +42,10 @@ contract Rollup {
 
     uint256 accruedFees;
 
-    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, uint256 _depth) {
+    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, DepositVerifier _depositVerifier) {
         txVerifier = _txVerifier;
         withdrawVerifier = _withdrawVerifier;
-        balanceTree.init(_depth, 0);
+        depositVerifier = _depositVerifier;
         _status = _NOT_ENTERED;
         owner = msg.sender;
     }
@@ -64,203 +59,175 @@ contract Rollup {
         _status = _NOT_ENTERED;
     }
 
-    function rollUp (
+    // function rollUp (
+    //     uint256[2] memory a,
+    //     uint256[2][2] memory b,
+    //     uint256[2] memory c,
+    //     uint8[][] memory pathIndices,
+    //     uint[65] memory input
+    // ) external {
+    //     // depth = 6
+    //     // balanceRoot = input[1]
+    //     if (balanceTree.root != input[1]) {
+    //         revert Errors.INVALID_MERKLE_TREE();
+    //     }
+
+    //     if (!txVerifier.verifyProof(a, b, c, input)) {
+    //         revert Errors.INVALID_ROLLUP_PROOFS();
+    //     }
+
+    //     // Transaction
+    //     uint256 amount;
+    //     uint256 fee;
+    //     uint256 nonce;
+    //     uint256 curOffset;
+
+    //     uint256 leaf;
+    //     uint256 newLeaf;
+
+    //     uint256 publicKeyHash;
+
+    //     uint256[] memory pathElements = new uint256[](6);
+    //     uint8[] memory pathIndex;
+
+    //     uint256 txDataOffset = 3;
+    //     uint256 batchSize = 2;
+
+    //     // batchSize = 2
+    //     for (uint8 i = 0; i < batchSize; i++) {
+    //         // txData[i] txDataOffset = 3
+    //         // txDataLength = 8
+    //         curOffset = txDataOffset + (8 * i);
+
+    //         amount = input[curOffset + 2];
+    //         fee = input[curOffset + 3];
+    //         nonce = input[curOffset + 4];
+
+    //         // sendersPublicKey[i]
+    //         curOffset += (8 * (batchSize - i)) + (2 * i);
+    //         publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+
+    //         // sendersPathElements[i]
+    //         // 6 = depth
+    //         curOffset += (2 * (batchSize - i)) + (6 * i);
+    //         for (uint8 j = 0; j < 6; j++) {
+    //             pathElements[j] = input[curOffset + j];
+    //         }
+
+    //         // update txSender
+    //         User storage user = balanceTreeUsers[publicKeyHash];
+
+    //         leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
+
+    //         // underflow can't happen
+    //         // zkp verified all inputs
+    //         unchecked {
+    //             user.balance -= amount;
+    //             user.balance -= fee; 
+    //         }
+    //         user.nonce = nonce;
+
+    //         accruedFees += fee;
+
+    //         newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
+
+    //         pathIndex = pathIndices[2 * i];
+
+    //         balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
+
+    //         // recipientPublicKey[i]
+    //         curOffset += (6 * (batchSize - i)) + (2 * i);
+    //         publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+
+    //         // recipientPathElements[i]
+    //         curOffset += ((2 + 6) * (batchSize - i)) + (6 * i);
+    //         for (uint8 j = 0; j < 6; j++) {
+    //             pathElements[j] = input[curOffset + j];
+    //         }
+
+    //         // update txRecipient
+    //         user = balanceTreeUsers[publicKeyHash];
+
+    //         leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
+
+    //         unchecked {
+    //             user.balance += amount;
+    //         }
+
+    //         newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
+
+    //         pathIndex = pathIndices[2 * i + 1];
+
+    //         balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
+    //     }
+    // }
+
+    function deposit(
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint8[][] memory pathIndices,
-        uint[65] memory input
-    ) external {
-        // depth = 6
-        // balanceRoot = input[1]
-        if (balanceTree.root != input[1]) {
-            revert Errors.INVALID_MERKLE_TREE();
-        }
-
-        if (!txVerifier.verifyProof(a, b, c, input)) {
-            revert Errors.INVALID_ROLLUP_PROOFS();
-        }
-
-        // Transaction
-        uint256 amount;
-        uint256 fee;
-        uint256 nonce;
-        uint256 curOffset;
-
-        uint256 leaf;
-        uint256 newLeaf;
-
-        uint256 publicKeyHash;
-
-        uint256[] memory pathElements = new uint256[](6);
-        uint8[] memory pathIndex;
-
-        uint256 txDataOffset = 3;
-        uint256 batchSize = 2;
-
-        // batchSize = 2
-        for (uint8 i = 0; i < batchSize; i++) {
-            // txData[i] txDataOffset = 3
-            // txDataLength = 8
-            curOffset = txDataOffset + (8 * i);
-
-            amount = input[curOffset + 2];
-            fee = input[curOffset + 3];
-            nonce = input[curOffset + 4];
-
-            // sendersPublicKey[i]
-            curOffset += (8 * (batchSize - i)) + (2 * i);
-            publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
-
-            // sendersPathElements[i]
-            // 6 = depth
-            curOffset += (2 * (batchSize - i)) + (6 * i);
-            for (uint8 j = 0; j < 6; j++) {
-                pathElements[j] = input[curOffset + j];
-            }
-
-            // update txSender
-            User storage user = balanceTreeUsers[publicKeyHash];
-
-            leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-            // underflow can't happen
-            // zkp verified all inputs
-            unchecked {
-                user.balance -= amount;
-                user.balance -= fee; 
-            }
-            user.nonce = nonce;
-
-            accruedFees += fee;
-
-            newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-            pathIndex = pathIndices[2 * i];
-
-            balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
-
-            // recipientPublicKey[i]
-            curOffset += (6 * (batchSize - i)) + (2 * i);
-            publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
-
-            // recipientPathElements[i]
-            curOffset += ((2 + 6) * (batchSize - i)) + (6 * i);
-            for (uint8 j = 0; j < 6; j++) {
-                pathElements[j] = input[curOffset + j];
-            }
-
-            // update txRecipient
-            user = balanceTreeUsers[publicKeyHash];
-
-            leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-            unchecked {
-                user.balance += amount;
-            }
-
-            newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-            pathIndex = pathIndices[2 * i + 1];
-
-            balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
-        }
-    }
-
-    // if the user is the first time to deposit, 
-    // leave empty array for proofSiblings & proofPathindices
-    function deposit(
-        uint256 publicKeyX,
-        uint256 publicKeyY
+        uint256[4] memory input
     ) external payable {
-        _deposit(publicKeyX, publicKeyY, new uint256[](0), new uint8[](0));
-    }
+        if (!depositVerifier.verifyProof(a, b, c, input)) {
+            revert Errors.INVALID_DEPOSIT_PROOFS();
+        }
 
-    function deposit(
-        uint256 publicKeyX,
-        uint256 publicKeyY,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices
-    ) external payable {
-        _deposit(publicKeyX, publicKeyY, proofSiblings, proofPathIndices);
-    }
-
-    function _deposit(
-        uint256 publicKeyX,
-        uint256 publicKeyY,
-        uint256[] memory proofSiblings,
-        uint8[] memory proofPathIndices
-    ) internal {
         if (msg.value == 0) {
             revert Errors.INVALID_VALUE();
+        }
+
+        uint256 newRoot = input[0];
+        uint256 root = input[1];
+        uint256 publicKeyX = input[2];
+        uint256 publicKeyY = input[3];
+
+        if (root != balanceTreeRoot) {
+            revert Errors.INVALID_MERKLE_TREE();
         }
 
         uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
         User storage user = balanceTreeUsers[publicKeyHash];
         
-        uint256 leaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
-        
+        // zkp is valid, just update balance
         user.balance += msg.value;
 
-        uint256 newLeaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
 
-        if (isPublicKeysRegistered[publicKeyHash]) {
-            balanceTree.update(leaf, newLeaf, proofSiblings, proofPathIndices);
-        } else {
+        if (!isPublicKeysRegistered[publicKeyHash]) {
             isPublicKeysRegistered[publicKeyHash] = true;
 
             user.publicKeyX = publicKeyX;
             user.publicKeyY = publicKeyY;
-
-            balanceTree.insert(newLeaf);
         }
+
+        balanceTreeRoot = newRoot;
 
         emit Deposit(user);
     }
 
     // withdraw all deposit
     function withdraw(
-        uint256[2] memory a,
-        uint256[2][2] memory b,
-        uint256[2] memory c,
-        uint256[3] memory input,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices
-    ) external {
-        _withdraw(Constants.UINT256_MAX, a, b, c, input, proofSiblings, proofPathIndices);
-    }
-
-    function withdraw(
         uint256 amount,
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[3] memory input,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices
-    ) external {
-        _withdraw(amount, a, b, c, input, proofSiblings, proofPathIndices);
-    }
+        uint256[5] memory input
+    ) external nonReentrant {
+        if (!withdrawVerifier.verifyProof(a, b, c, input)) {
+            revert Errors.INVALID_WITHDRAW_PROOFS();
+        }
 
-    function _withdraw(
-        uint256 amount,
-        uint256[2] memory a,
-        uint256[2][2] memory b,
-        uint256[2] memory c,
-        uint256[3] memory input,
-        uint256[] calldata proofSiblings,
-        uint8[] calldata proofPathIndices
-    ) internal nonReentrant {
-        uint256 publicKeyX = input[0];
-        uint256 publicKeyY = input[1];
-        uint256 nullifier = input[2];
+        uint256 newRoot = input[0];
+        uint256 root = input[1];
+        uint256 publicKeyX = input[2];
+        uint256 publicKeyY = input[3];
+        uint256 nullifier = input[4];
+
+        if (balanceTreeRoot != root) {
+            revert Errors.INVALID_MERKLE_TREE();
+        }
 
         if (usedNullifiers[nullifier]) {
             revert Errors.INVALID_NULLIFIER();
-        }
-
-        if (!withdrawVerifier.verifyProof(a, b, c, input)) {
-            revert Errors.INVALID_WITHDRAW_PROOFS();
         }
 
         User storage user = _getUserByPublicKey(publicKeyX, publicKeyY);
@@ -274,8 +241,6 @@ contract Rollup {
 
         usedNullifiers[nullifier] = true;
         
-        uint256 leaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
-
         user.balance -= amount;
 
         (bool success,) = msg.sender.call{value: amount}("");
@@ -283,9 +248,7 @@ contract Rollup {
             revert Errors.WITHDRAWAL_FAILED();
         } 
 
-        uint256 newLeaf = PoseidonT5.hash([publicKeyX, publicKeyY, user.balance, user.nonce]);
-
-        balanceTree.update(leaf, newLeaf, proofSiblings, proofPathIndices);
+        balanceTreeRoot = newRoot;
 
         emit Withdraw(user);
     }
@@ -307,7 +270,7 @@ contract Rollup {
         return balanceTreeUsers[publicKeyHash];
     }
 
-    function withdrawAccredFees() external {
+    function withdrawAccruedFees() external {
         if (msg.sender != owner) {
             revert Errors.ONLY_OWNER();
         }

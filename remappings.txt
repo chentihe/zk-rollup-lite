@@ -1,5 +1,4 @@
 ds-test/=contracts/lib/forge-std/lib/ds-test/src/
 forge-std/=contracts/lib/forge-std/src/
 poseidon-solidity/=contracts/lib/poseidon-solidity/contracts/
-zk-kit/=contracts/lib/zk-kit/packages/incremental-merkle-tree.sol/contracts
-iden3-lib/=contracts/lib/contracts/contracts/lib
+zk-kit/=contracts/lib/zk-kit/packages/incremental-merkle-tree.sol/contracts/
