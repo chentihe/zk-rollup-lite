@@ -45,4 +45,4 @@ template Deposit(depth) {
     );
 }
 
-component main {public [balanceTreeRoot, publicKey]} = Deposit(6);
+component main {public [balanceTreeRoot, newKey, publicKey]} = Deposit(6);

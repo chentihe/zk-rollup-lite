@@ -150,7 +150,8 @@ template ProcessTx(depth) {
         balanceTreeRoot,
         txSenderPathElements,
         txData[TX_DATA_FROM_IDX],
-        txSenderLeaf, NOT_OLD,
+        txSenderLeaf,
+        NOT_OLD,
         txData[TX_DATA_FROM_IDX],
         newTxSenderLeaf,
         UPDATE_FUNCTION

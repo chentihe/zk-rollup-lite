@@ -29,6 +29,7 @@ contract Rollup {
     event RollUp(uint256 newBalanceTreeRoot);
 
     struct User {
+        uint256 index;
         uint256 publicKeyX;
         uint256 publicKeyY;
         uint256 balance;
@@ -39,6 +40,8 @@ contract Rollup {
     mapping(uint256 => User) public balanceTreeUsers;
     mapping(uint256 => bool) public isPublicKeysRegistered;
     mapping(uint256 => bool) public usedNullifiers;
+
+    mapping(uint256 => uint256) public balanceTreeKeys;
 
     uint256 accruedFees;
 
@@ -59,114 +62,74 @@ contract Rollup {
         _status = _NOT_ENTERED;
     }
 
-    // function rollUp (
-    //     uint256[2] memory a,
-    //     uint256[2][2] memory b,
-    //     uint256[2] memory c,
-    //     uint8[][] memory pathIndices,
-    //     uint[65] memory input
-    // ) external {
-    //     // depth = 6
-    //     // balanceRoot = input[1]
-    //     if (balanceTree.root != input[1]) {
-    //         revert Errors.INVALID_MERKLE_TREE();
-    //     }
+    function rollUp (
+        uint256[2] memory a,
+        uint256[2][2] memory b,
+        uint256[2] memory c,
+        uint[19] memory input
+    ) external {
+        if (!txVerifier.verifyProof(a, b, c, input)) {
+            revert Errors.INVALID_ROLLUP_PROOFS();
+        }
 
-    //     if (!txVerifier.verifyProof(a, b, c, input)) {
-    //         revert Errors.INVALID_ROLLUP_PROOFS();
-    //     }
+        if (balanceTreeRoot != input[1]) {
+            revert Errors.INVALID_MERKLE_TREE();
+        }
 
-    //     // Transaction
-    //     uint256 amount;
-    //     uint256 fee;
-    //     uint256 nonce;
-    //     uint256 curOffset;
+        uint256 newRoot = input[0];
 
-    //     uint256 leaf;
-    //     uint256 newLeaf;
+        // Transaction
+        uint256 sender;
+        uint256 recipient;
+        uint256 amount;
+        uint256 fee;
+        uint256 nonce;
+        uint256 curOffset;
 
-    //     uint256 publicKeyHash;
+        uint256 txDataOffset = 3;
+        uint256 batchSize = 2;
 
-    //     uint256[] memory pathElements = new uint256[](6);
-    //     uint8[] memory pathIndex;
+        // batchSize = 2
+        for (uint8 i = 0; i < batchSize; i++) {
+            // txData[i] txDataOffset = 3
+            // txDataLength = 8
+            curOffset = txDataOffset + (8 * i);
 
-    //     uint256 txDataOffset = 3;
-    //     uint256 batchSize = 2;
+            sender = input[curOffset];
+            recipient = input[curOffset + 1];
+            amount = input[curOffset + 2];
+            fee = input[curOffset + 3];
+            nonce = input[curOffset + 4];
 
-    //     // batchSize = 2
-    //     for (uint8 i = 0; i < batchSize; i++) {
-    //         // txData[i] txDataOffset = 3
-    //         // txDataLength = 8
-    //         curOffset = txDataOffset + (8 * i);
+            // update txSender
+            User storage user = balanceTreeUsers[balanceTreeKeys[sender]];
 
-    //         amount = input[curOffset + 2];
-    //         fee = input[curOffset + 3];
-    //         nonce = input[curOffset + 4];
+            // underflow can't happen
+            // zkp verified all inputs
+            unchecked {
+                user.balance -= amount;
+                user.balance -= fee;
+            }
+            user.nonce = nonce;
 
-    //         // sendersPublicKey[i]
-    //         curOffset += (8 * (batchSize - i)) + (2 * i);
-    //         publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
+            accruedFees += fee;
 
-    //         // sendersPathElements[i]
-    //         // 6 = depth
-    //         curOffset += (2 * (batchSize - i)) + (6 * i);
-    //         for (uint8 j = 0; j < 6; j++) {
-    //             pathElements[j] = input[curOffset + j];
-    //         }
+            // update txRecipient
+            user = balanceTreeUsers[balanceTreeKeys[recipient]];
 
-    //         // update txSender
-    //         User storage user = balanceTreeUsers[publicKeyHash];
+            unchecked {
+                user.balance += amount;
+            }
+        }
 
-    //         leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-    //         // underflow can't happen
-    //         // zkp verified all inputs
-    //         unchecked {
-    //             user.balance -= amount;
-    //             user.balance -= fee; 
-    //         }
-    //         user.nonce = nonce;
-
-    //         accruedFees += fee;
-
-    //         newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-    //         pathIndex = pathIndices[2 * i];
-
-    //         balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
-
-    //         // recipientPublicKey[i]
-    //         curOffset += (6 * (batchSize - i)) + (2 * i);
-    //         publicKeyHash = _generateKeyHash(input[curOffset], input[curOffset + 1]);
-
-    //         // recipientPathElements[i]
-    //         curOffset += ((2 + 6) * (batchSize - i)) + (6 * i);
-    //         for (uint8 j = 0; j < 6; j++) {
-    //             pathElements[j] = input[curOffset + j];
-    //         }
-
-    //         // update txRecipient
-    //         user = balanceTreeUsers[publicKeyHash];
-
-    //         leaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-    //         unchecked {
-    //             user.balance += amount;
-    //         }
-
-    //         newLeaf = PoseidonT5.hash([user.publicKeyX, user.publicKeyY, user.balance, user.nonce]);
-
-    //         pathIndex = pathIndices[2 * i + 1];
-
-    //         balanceTree.update(leaf, newLeaf, pathElements, pathIndex);
-    //     }
-    // }
+        balanceTreeRoot = newRoot;
+    }
 
     function deposit(
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[4] memory input
+        uint256[5] memory input
     ) external payable {
         if (!depositVerifier.verifyProof(a, b, c, input)) {
             revert Errors.INVALID_DEPOSIT_PROOFS();
@@ -178,8 +141,9 @@ contract Rollup {
 
         uint256 newRoot = input[0];
         uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
+        uint256 index = input[2];
+        uint256 publicKeyX = input[3];
+        uint256 publicKeyY = input[4];
 
         if (root != balanceTreeRoot) {
             revert Errors.INVALID_MERKLE_TREE();
@@ -195,8 +159,11 @@ contract Rollup {
         if (!isPublicKeysRegistered[publicKeyHash]) {
             isPublicKeysRegistered[publicKeyHash] = true;
 
+            user.index = index;
             user.publicKeyX = publicKeyX;
             user.publicKeyY = publicKeyY;
+
+            balanceTreeKeys[index] = publicKeyHash;
         }
 
         balanceTreeRoot = newRoot;
@@ -267,6 +234,11 @@ contract Rollup {
 
     function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal view returns (User storage) {
         uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
+        return balanceTreeUsers[publicKeyHash];
+    }
+
+    function getUserByIndex(uint256 index) external view returns (User memory) {
+        uint256 publicKeyHash = balanceTreeKeys[index];
         return balanceTreeUsers[publicKeyHash];
     }
 

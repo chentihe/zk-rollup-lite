@@ -33,12 +33,12 @@ contract RollupTest is Test {
         runJsInputs[4] = "run";
         runJsInputs[5] = "generate-zkp-deposit";
         bytes memory jsResult = vm.ffi(runJsInputs);
-        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[4] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[4]));
+        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
         
         uint256 newRoot = input[0];
         uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
+        uint256 publicKeyX = input[3];
+        uint256 publicKeyY = input[4];
 
         assertEq(rollup.balanceTreeRoot(), root);
 
@@ -81,7 +81,7 @@ contract RollupTest is Test {
             .sig("getUserByPublicKey(uint256,uint256)")
             .with_key(publicKeyX)
             .with_key(publicKeyY)
-            .depth(2)
+            .depth(3)
             .checked_write(1e18);
 
         // transfer token
@@ -129,7 +129,7 @@ contract RollupTest is Test {
             .sig("getUserByPublicKey(uint256,uint256)")
             .with_key(publicKeyX)
             .with_key(publicKeyY)
-            .depth(2)
+            .depth(3)
             .checked_write(1e18);
 
         // transfer token
@@ -143,6 +143,59 @@ contract RollupTest is Test {
         assertEq(afterWithdraw - beforeWithdraw, 1e18);
         assertEq(newRoot, rollup.balanceTreeRoot());
         assertTrue(rollup.usedNullifiers(nullifier));
+    }
+
+    function testRollup() public {
+        string[] memory runJsInputs = new string[](6);
+        runJsInputs[0] = "npm";
+        runJsInputs[1] = "--prefix";
+        runJsInputs[2] = "contracts/test/script/";
+        runJsInputs[3] = "--silent";
+        runJsInputs[4] = "run";
+        runJsInputs[5] = "generate-zkp-rollup";
+        bytes memory jsResult = vm.ffi(runJsInputs);
+        (uint256[2] memory senderKey, uint256[2] memory recipientKey, uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[19] memory input) = abi.decode(jsResult, (uint256[2], uint256[2], uint256[2], uint256[2][2], uint256[2], uint256[19]));
+
+        uint256 newRoot = input[0];
+        uint256 root = input[1];
+        uint256 senderIdx = input[3];
+        uint256 recipientIdx = input[4];
+        
+        // setup root
+        stdstore
+            .target(address(rollup))
+            .sig(0xb4e7dddd)
+            .checked_write(root);
+
+        // setup mock users
+        uint256 senderKeyHash = rollup.generateKeyHash(senderKey[0], senderKey[1]);
+        uint256 recipientKeyHash = rollup.generateKeyHash(recipientKey[0], recipientKey[1]);
+        stdstore.target(address(rollup))
+            .sig("balanceTreeKeys(uint256)")
+            .with_key(senderIdx)
+            .checked_write(senderKeyHash);
+        stdstore.target(address(rollup))
+            .sig("balanceTreeKeys(uint256)")
+            .with_key(recipientIdx)
+            .checked_write(recipientKeyHash);
+
+        // setup balance
+        stdstore.target(address(rollup))
+            .sig("getUserByIndex(uint256)")
+            .with_key(senderIdx)
+            .depth(3)
+            .checked_write(10e18);
+
+        // transfer token
+        (bool success, ) = address(rollup).call{value: 10e18}("");
+        require(success, "transfer ether failed");
+
+        rollup.rollUp(a, b, c, input);
+        Rollup.User memory sender = rollup.getUserByIndex(senderIdx);
+        Rollup.User memory recipient = rollup.getUserByIndex(recipientIdx);
+        assertEq(newRoot, rollup.balanceTreeRoot());
+        assertEq(sender.balance, 7e18);
+        assertEq(recipient.balance, 2e18);
     }
 
     receive() external payable {}
