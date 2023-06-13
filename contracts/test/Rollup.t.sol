@@ -2,12 +2,15 @@
 pragma solidity >0.8.0 <=0.9;
 
 import {Test} from "forge-std/Test.sol";
+import {StdStorage, stdStorage} from "forge-std/StdStorage.sol";
 import {Rollup} from "../src/Rollup.sol";
 import {TxVerifier} from "../src/verifiers/TxVerifier.sol";
 import {WithdrawVerifier} from "../src/verifiers/WithdrawVerifier.sol";
 import {DepositVerifier} from "../src/verifiers/DepositVerifier.sol";
 
 contract RollupTest is Test {
+    using stdStorage for StdStorage;
+
     Rollup rollup;
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
@@ -28,7 +31,7 @@ contract RollupTest is Test {
         runJsInputs[2] = "contracts/test/script/";
         runJsInputs[3] = "--silent";
         runJsInputs[4] = "run";
-        runJsInputs[5] = "generate-merkle-tree-proof";
+        runJsInputs[5] = "generate-zkp-deposit";
         bytes memory jsResult = vm.ffi(runJsInputs);
         (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[4] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[4]));
         
@@ -48,75 +51,99 @@ contract RollupTest is Test {
         assertEq(rollup.balanceTreeRoot(), newRoot);
     }
 
-    // function testWithdraw() public {
-    //     string[] memory runJsInputs = new string[](8);
-    //     runJsInputs[0] = "npm";
-    //     runJsInputs[1] = "--prefix";
-    //     runJsInputs[2] = "contracts/test/script/";
-    //     runJsInputs[3] = "--silent";
-    //     runJsInputs[4] = "run";
-    //     runJsInputs[5] = "generate-zkp-withdraw";
-    //     runJsInputs[6] = "withdraw";
-    //     runJsInputs[7] = "0.5";
-    //     bytes memory jsResult = vm.ffi(runJsInputs);
-    //     (uint256[2] memory publicKey, uint8[6] memory pathIndices, uint256[6] memory siblings, uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[3] memory input) = abi.decode(jsResult, (uint256[2], uint8[6], uint256[6], uint256[2], uint256[2][2], uint256[2], uint256[3]));
-    //     uint256 publicKeyX = publicKey[0];
-    //     uint256 publicKeyY = publicKey[1];
+    function testWithdraw() public {
+        string[] memory runJsInputs = new string[](8);
+        runJsInputs[0] = "npm";
+        runJsInputs[1] = "--prefix";
+        runJsInputs[2] = "contracts/test/script/";
+        runJsInputs[3] = "--silent";
+        runJsInputs[4] = "run";
+        runJsInputs[5] = "generate-zkp-withdraw";
+        runJsInputs[6] = "withdraw";
+        runJsInputs[7] = "0.5";
+        bytes memory jsResult = vm.ffi(runJsInputs);
+        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
+
+        uint256 newRoot = input[0];
+        uint256 root = input[1];
+        uint256 publicKeyX = input[2];
+        uint256 publicKeyY = input[3];
+        uint256 nullifier = input[4];
+
+        // setup root
+        stdstore
+            .target(address(rollup))
+            .sig(0xb4e7dddd)
+            .checked_write(root);
+
+        // setup balance
+        stdstore.target(address(rollup))
+            .sig("getUserByPublicKey(uint256,uint256)")
+            .with_key(publicKeyX)
+            .with_key(publicKeyY)
+            .depth(2)
+            .checked_write(1e18);
+
+        // transfer token
+        (bool success, ) = address(rollup).call{value: 1e18}("");
+        require(success, "transfer ether failed");
+
+        assertEq(rollup.balanceTreeRoot(), root);
+
+        uint256 beforeWithdraw = address(this).balance;
+        rollup.withdraw(0.5e18, a, b, c, input);
+        uint256 afterWithdraw = address(this).balance;
+
+        assertEq(afterWithdraw - beforeWithdraw, 0.5e18);
+        assertEq(newRoot, rollup.balanceTreeRoot());
+        assertTrue(rollup.usedNullifiers(nullifier));
+    }
+
+    function testWithdrawAll() public {
+        string[] memory runJsInputs = new string[](8);
+        runJsInputs[0] = "npm";
+        runJsInputs[1] = "--prefix";
+        runJsInputs[2] = "contracts/test/script/";
+        runJsInputs[3] = "--silent";
+        runJsInputs[4] = "run";
+        runJsInputs[5] = "generate-zkp-withdraw";
+        runJsInputs[6] = "withdraw-all";
+        runJsInputs[7] = "0.5";
+        bytes memory jsResult = vm.ffi(runJsInputs);
+        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
+
+        uint256 newRoot = input[0];
+        uint256 root = input[1];
+        uint256 publicKeyX = input[2];
+        uint256 publicKeyY = input[3];
+        uint256 nullifier = input[4];
         
-    //     rollup.deposit{value: 1 ether}(publicKeyX, publicKeyY);
+        // setup root
+        stdstore
+            .target(address(rollup))
+            .sig(0xb4e7dddd)
+            .checked_write(root);
 
-    //     uint256 keyHash = rollup.generateKeyHash(publicKeyX, publicKeyY);
-    //     bool isRegistered = rollup.isPublicKeysRegistered(keyHash);
-    //     assertEq(isRegistered, true);
+        // setup balance
+        stdstore.target(address(rollup))
+            .sig("getUserByPublicKey(uint256,uint256)")
+            .with_key(publicKeyX)
+            .with_key(publicKeyY)
+            .depth(2)
+            .checked_write(1e18);
 
-    //     uint256[] memory proofSiblings = new uint256[](6);
-    //     uint8[] memory proofPathIndices = new uint8[](6);
-    //     for (uint8 i = 0; i < 6; i++) {
-    //         proofSiblings[i] = siblings[i];
-    //         proofPathIndices[i] = pathIndices[i];
-    //     }
+        // transfer token
+        (bool success, ) = address(rollup).call{value: 1e18}("");
+        require(success, "transfer ether failed");
 
-    //     uint256 beforeWithdraw = address(this).balance;
-    //     rollup.withdraw(0.5e18, a, b, c, input, proofSiblings, proofPathIndices);
-    //     uint256 afterWithdraw = address(this).balance;
+        uint256 beforeWithdraw = address(this).balance;
+        rollup.withdraw(type(uint256).max, a, b, c, input);
+        uint256 afterWithdraw = address(this).balance;
 
-    //     assertEq(afterWithdraw - beforeWithdraw, 0.5e18);
-    // }
-
-    // function testWithdrawAll() public {
-    //     string[] memory runJsInputs = new string[](8);
-    //     runJsInputs[0] = "npm";
-    //     runJsInputs[1] = "--prefix";
-    //     runJsInputs[2] = "contracts/test/script/";
-    //     runJsInputs[3] = "--silent";
-    //     runJsInputs[4] = "run";
-    //     runJsInputs[5] = "generate-zkp-withdraw";
-    //     runJsInputs[6] = "withdraw-all";
-    //     runJsInputs[7] = "0.5";
-    //     bytes memory jsResult = vm.ffi(runJsInputs);
-    //     (uint256[2] memory publicKey, uint8[6] memory pathIndices, uint256[6] memory siblings, uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[3] memory input) = abi.decode(jsResult, (uint256[2], uint8[6], uint256[6], uint256[2], uint256[2][2], uint256[2], uint256[3]));
-    //     uint256 publicKeyX = publicKey[0];
-    //     uint256 publicKeyY = publicKey[1];
-        
-    //     rollup.deposit{value: 1 ether}(publicKeyX, publicKeyY);
-
-    //     uint256 keyHash = rollup.generateKeyHash(publicKeyX, publicKeyY);
-    //     bool isRegistered = rollup.isPublicKeysRegistered(keyHash);
-    //     assertEq(isRegistered, true);
-
-    //     uint256[] memory proofSiblings = new uint256[](6);
-    //     uint8[] memory proofPathIndices = new uint8[](6);
-    //     for (uint8 i = 0; i < 6; i++) {
-    //         proofSiblings[i] = siblings[i];
-    //         proofPathIndices[i] = pathIndices[i];
-    //     }
-
-    //     uint256 beforeWithdraw = address(this).balance;
-    //     rollup.withdraw(a, b, c, input, proofSiblings, proofPathIndices);
-    //     uint256 afterWithdraw = address(this).balance;
-
-    //     assertEq(afterWithdraw - beforeWithdraw, 1e18);
-    // }
+        assertEq(afterWithdraw - beforeWithdraw, 1e18);
+        assertEq(newRoot, rollup.balanceTreeRoot());
+        assertTrue(rollup.usedNullifiers(nullifier));
+    }
 
     receive() external payable {}
     fallback() external payable {}

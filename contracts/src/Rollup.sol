@@ -38,7 +38,7 @@ contract Rollup {
     // hashedPublicKey => User
     mapping(uint256 => User) public balanceTreeUsers;
     mapping(uint256 => bool) public isPublicKeysRegistered;
-    mapping(uint256 => bool) usedNullifiers;
+    mapping(uint256 => bool) public usedNullifiers;
 
     uint256 accruedFees;
 
@@ -282,4 +282,7 @@ contract Rollup {
 
         accruedFees = 0;
     }
+
+    receive() external payable {}
+    fallback() external payable {}
 }
