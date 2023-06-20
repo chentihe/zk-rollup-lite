@@ -2,72 +2,72 @@
 version: '3.7'
 
 services:
-  geth-bootnode:
-    hostname: geth-bootnode
-    restart: always
-    build: monitored-geth-client
-    entrypoint: /root/start.sh
-    command:
-      --datadir=~/.ethereum/devchain
-      --nodekeyhex="b0ac22adcad37213c7c565810a50f1772291e7b0ce53fb73e7ec2a3c75bc13b5"
-      --nodiscover
-      --ipcdisable
-      --networkid=1214
-      --netrestrict="172.16.254.0/28"
-      --allow-insecure-unlock
-      --http
-      --http.addr="0.0.0.0"
-      --http.api="eth,web3,net,admin,personal"
-      --http.corsdomain="*"
-      --ws
-      --ws.addr="0.0.0.0"
-      --ws.api="eth,web3,net,admin,personal"
-      --ws.origins="*"
-      --netrestrict="172.16.254.0/28"
-    ports:
-      - "8545:8545"
-      - "8546:8546"
-      - "30303:30303"
-      - "30303:30303/udp"
-    volumes:
-      - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
-      - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
-      - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
-    networks:
-      priv-eth-net:
+  # geth-bootnode:
+  #   hostname: geth-bootnode
+  #   restart: always
+  #   build: monitored-geth-client
+  #   entrypoint: /root/start.sh
+  #   command:
+  #     --datadir=~/.ethereum/devchain
+  #     --nodekeyhex="b0ac22adcad37213c7c565810a50f1772291e7b0ce53fb73e7ec2a3c75bc13b5"
+  #     --nodiscover
+  #     --ipcdisable
+  #     --networkid=1214
+  #     --netrestrict="172.16.254.0/28"
+  #     --allow-insecure-unlock
+  #     --http
+  #     --http.addr="0.0.0.0"
+  #     --http.api="eth,web3,net,admin,personal"
+  #     --http.corsdomain="*"
+  #     --ws
+  #     --ws.addr="0.0.0.0"
+  #     --ws.api="eth,web3,net,admin,personal"
+  #     --ws.origins="*"
+  #     --netrestrict="172.16.254.0/28"
+  #   ports:
+  #     - "8545:8545"
+  #     - "8546:8546"
+  #     - "30303:30303"
+  #     - "30303:30303/udp"
+  #   volumes:
+  #     - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
+  #     - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
+  #     - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
+  #   networks:
+  #     priv-eth-net:
 
-  geth-miner:
-    hostname: geth-miner
-    build: monitored-geth-client
-    restart: always
-    depends_on:
-      - geth-bootnode
-    entrypoint: /root/start.sh
-    command:
-      --datadir=~/.ethereum/devchain
-      --bootnodes="enode://af22c29c316ad069cf48a09a4ad5cf04a251b411e45098888d114c6dd7f489a13786620d5953738762afa13711d4ffb3b19aa5de772d8af72f851f7e9c5b164a@geth-bootnode:30303"
-      --mine
-      --miner.threads=1
-      --networkid=1214
-      --netrestrict="172.16.254.0/28"
-      --miner.etherbase="0xfec114eab1feaae445bcfc355affc40d16fca62f"
-    volumes:
-      - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
-      - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
-      - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
-    networks:
-      priv-eth-net:
+  # geth-miner:
+  #   hostname: geth-miner
+  #   build: monitored-geth-client
+  #   restart: always
+  #   depends_on:
+  #     - geth-bootnode
+  #   entrypoint: /root/start.sh
+  #   command:
+  #     --datadir=~/.ethereum/devchain
+  #     --bootnodes="enode://af22c29c316ad069cf48a09a4ad5cf04a251b411e45098888d114c6dd7f489a13786620d5953738762afa13711d4ffb3b19aa5de772d8af72f851f7e9c5b164a@geth-bootnode:30303"
+  #     --mine
+  #     --miner.threads=1
+  #     --networkid=1214
+  #     --netrestrict="172.16.254.0/28"
+  #     --miner.etherbase="0xfec114eab1feaae445bcfc355affc40d16fca62f"
+  #   volumes:
+  #     - ./nodes/monitored-geth-client/files/password:/root/files/password:ro
+  #     - ./nodes/monitored-geth-client/files/genesis.json:/root/files/genesis.json:ro
+  #     - ./nodes/monitored-geth-client/files/keystore:/root/.ethereum/devchain/keystore:rw
+  #   networks:
+  #     priv-eth-net:
   
-  netstats:
-    build: eth-netstats
-    restart: always
-    environment:
-      - WS_SECRET=eth-net-stats-secret
-    ports:
-      - 3000:3000
-    networks:
-      priv-eth-net:
-      net-stats:
+  # netstats:
+  #   build: eth-netstats
+  #   restart: always
+  #   environment:
+  #     - WS_SECRET=eth-net-stats-secret
+  #   ports:
+  #     - 3000:3000
+  #   networks:
+  #     priv-eth-net:
+  #     net-stats:
 
   postgres:
     image: postgres:alpine
@@ -76,9 +76,11 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_USER: username
     ports:
-      - 5430:5430
+      - 5432:5432
     networks:
       - postgres-network
+    volumes:
+      - ./operator/database/schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
     restart: on-failure:3
 
   pgweb:
@@ -93,29 +95,29 @@ services:
       - postgres-network
     restart: on-failure:3
 
-  redis:
-    image: redis:latest
-    command: redis-server
-    volumes:
-      - redis:/var/lib/redis
-      - redis-config:/usr/local/etc/redis/redis.conf
-    ports:
-      - 6379:6379
-    networks:
-      - redis-network
+  # redis:
+  #   image: redis:latest
+  #   command: redis-server
+  #   volumes:
+  #     - redis:/var/lib/redis
+  #     - redis-config:/usr/local/etc/redis/redis.conf
+  #   ports:
+  #     - 6379:6379
+  #   networks:
+  #     - redis-network
     
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-      - HTTP_USER=root
-      - HTTP_PASSWORD=qwerty
-    ports:
-      - 8081:8081
-    networks:
-      - redis-network
-    depends_on:
-      - redis
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379
+  #     - HTTP_USER=root
+  #     - HTTP_PASSWORD=qwerty
+  #   ports:
+  #     - 8081:8081
+  #   networks:
+  #     - redis-network
+  #   depends_on:
+  #     - redis
 
 volumes:
   redis:
