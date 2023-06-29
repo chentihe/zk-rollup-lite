@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	sql "github.com/iden3/go-merkletree-sql/db/pgx/v2"
+	sql "github.com/iden3/go-merkletree-sql/db/pgx/v5"
 	"github.com/iden3/go-merkletree-sql/v2"
 
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func InitMerkleTree() (*merkletree.MerkleTree, error) {
@@ -16,10 +16,10 @@ func InitMerkleTree() (*merkletree.MerkleTree, error) {
 	mtDepth := 6
 	mtId := uint64(1)
 
-	// TODO: pgxPool should move to main.go
+	// TODO: pgxPool & context should move to main.go
 	// pass into this func as an arg
 	ctx := context.Background()
-	pgxPool, err := pgxpool.Connect(ctx, urlExample)
+	pgxPool, err := pgxpool.New(ctx, urlExample)
 	if err != nil {
 		return nil, errors.New("unable to connect to the database")
 	}
