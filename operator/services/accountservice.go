@@ -15,7 +15,7 @@ func NewAccountService(accountDao *daos.AccountDao) *AccountService {
 	}
 }
 
-func (service *AccountService) GetAccountByIndex(index string) (account *models.AccountModel, err error) {
+func (service *AccountService) GetAccountByIndex(index int64) (account *models.AccountModel, err error) {
 	return service.AccountDao.GetAccountByIndex(index)
 }
 
@@ -25,10 +25,4 @@ func (service *AccountService) CreateAccount(account *models.AccountModel) (err 
 
 func (service *AccountService) UpdateAccount(account *models.AccountModel) (err error) {
 	return service.AccountDao.UpdateAccount(account)
-}
-
-// TODO: add a transaction service to handle deposit, withdraw, rollup
-
-func (service *AccountService) Deposit() {
-
 }

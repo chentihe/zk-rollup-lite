@@ -17,7 +17,7 @@ func NewAccountDao(db *gorm.DB) AccountDao {
 	}
 }
 
-func (dao *AccountDaoImpl) GetAccountByIndex(index string) (account *models.AccountModel, err error) {
+func (dao *AccountDaoImpl) GetAccountByIndex(index int64) (account *models.AccountModel, err error) {
 	dbTx := dao.DB.
 		Where("account_index = ?", index).
 		First(&account)

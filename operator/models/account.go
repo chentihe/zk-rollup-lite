@@ -1,6 +1,10 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"math/big"
+
+	"gorm.io/gorm"
+)
 
 type AccountModel struct {
 	gorm.Model
@@ -9,5 +13,6 @@ type AccountModel struct {
 	PublicKey    string `gorm:"uniqueIndex"`
 	// AccountNameHash string `gorm:"uniqueIndex"`
 	L1Address string
-	Nonce     string
+	Nonce     int64
+	Balance   *big.Int
 }
