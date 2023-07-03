@@ -1,7 +1,10 @@
-package txhandlers
+package txmanager
 
 import (
 	"math/big"
+
+	"github.com/iden3/go-iden3-crypto/babyjub"
+	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 
 type TransactionInfo struct {
@@ -10,7 +13,7 @@ type TransactionInfo struct {
 	Amount    *big.Int
 	Fee       *big.Int
 	Nonce     int64
-	Signature []byte
+	Signature *babyjub.Signature
 }
 
 func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
@@ -65,7 +68,21 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 	return nil
 }
 
-// TODO: check how to using iden3 MiMC lib to verify the signature
-func (txInfo *TransactionInfo) VerifySignature(pubKey string) error {
+func (txInfo *TransactionInfo) VerifySignature(publicKey *babyjub.PublicKey) error {
+	hashedMsg, err := poseidon.Hash([]*big.Int{
+		big.NewInt(txInfo.From),
+		big.NewInt(txInfo.To),
+		txInfo.Amount,
+		txInfo.Fee,
+		big.NewInt(txInfo.Nonce),
+	})
+	if err != nil {
+		return err
+	}
+
+	if !publicKey.VerifyMimc7(hashedMsg, txInfo.Signature) {
+		return ErrInvalidSignature
+	}
+
 	return nil
 }

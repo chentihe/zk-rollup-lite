@@ -1,4 +1,4 @@
-package txhandlers
+package txmanager
 
 import "fmt"
 
@@ -19,4 +19,6 @@ var (
 	ErrFromAccountIndexTooHigh = fmt.Errorf("FromAccountIndex should not be larger than %d", maxAccountIndex)
 	ErrToAccountIndexTooLow    = fmt.Errorf("ToAccountIndex should not be less than %d", minAccountIndex)
 	ErrToAccountIndexTooHigh   = fmt.Errorf("ToAccountIndex should not be larger than %d", maxAccountIndex)
+
+	ErrInvalidSignature = fmt.Errorf("Invalid signature")
 )
