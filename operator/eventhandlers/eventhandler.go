@@ -66,12 +66,10 @@ func updateMerletree(accountSerivce *services.AccountService, mt *merkletree.Mer
 		case err := <-sub.Err():
 			return err
 		case vLog := <-logs:
-			fmt.Println("vLog: ", vLog)
-
 			switch vLog.Topics[0] {
 			case depositHash:
 				fmt.Println("Deposit Event")
-				if err := AfterDeposit(&vLog, accountSerivce, mt, &contractAbi, ctx); err != nil {
+				if err := AfterDeposit(&vLog, accountSerivce, mt, &contractAbi, ctx, client); err != nil {
 					return err
 				}
 			case withdrawHash:

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/chentihe/zk-rollup-lite/operator/database"
+	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -32,7 +32,7 @@ func AfterWithdraw(vLog *types.Log, accountService *services.AccountService, mt 
 	account.Balance = user.Balance
 	account.Nonce = user.Nonce
 
-	accountLeaf, err := database.GenerateAccountLeaf(account)
+	accountLeaf, err := accounttree.GenerateAccountLeaf(account)
 	if err != nil {
 		return err
 	}

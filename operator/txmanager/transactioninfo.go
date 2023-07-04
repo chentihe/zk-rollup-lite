@@ -68,7 +68,12 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 	return nil
 }
 
-func (txInfo *TransactionInfo) VerifySignature(publicKey *babyjub.PublicKey) error {
+func (txInfo *TransactionInfo) VerifySignature(comp string) error {
+	publicKey, err := DecodePublicKeyFromString(comp)
+	if err != nil {
+		return err
+	}
+
 	hashedMsg, err := poseidon.Hash([]*big.Int{
 		big.NewInt(txInfo.From),
 		big.NewInt(txInfo.To),

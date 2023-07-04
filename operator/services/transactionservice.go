@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/iden3/go-merkletree-sql/v2"
 )
@@ -45,25 +46,16 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	service.AccountService.UpdateAccount(fromAccount)
 	service.AccountService.UpdateAccount(toAccount)
 
-	fromPublicKey, err := txmanager.DecodePublicKeyFromString(fromAccount.PublicKey)
-	if err != nil {
-		return err
-	}
-	if err = tx.VerifySignature(fromPublicKey); err != nil {
+	if err = tx.VerifySignature(fromAccount.PublicKey); err != nil {
 		return err
 	}
 
-	fromLeaf, err := txmanager.GenerateLeaf(fromPublicKey, fromAccount.Balance, fromAccount.Nonce)
+	fromLeaf, err := accounttree.GenerateAccountLeaf(fromAccount)
 	if err != nil {
 		return err
 	}
 
-	toPublicKey, err := txmanager.DecodePublicKeyFromString(toAccount.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	toLeaf, err := txmanager.GenerateLeaf(toPublicKey, toAccount.Balance, toAccount.Nonce)
+	toLeaf, err := accounttree.GenerateAccountLeaf(toAccount)
 	if err != nil {
 		return err
 	}
