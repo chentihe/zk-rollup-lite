@@ -194,6 +194,10 @@ contract RollupTest is Test {
         Rollup.User memory sender = rollup.getUserByIndex(senderIdx);
         Rollup.User memory recipient = rollup.getUserByIndex(recipientIdx);
         assertEq(newRoot, rollup.balanceTreeRoot());
+        
+        // sender transfer 1 ether to recipient twice
+        // make a rollup to layer 1
+        // fee is 0.5 ether
         assertEq(sender.balance, 7e18);
         assertEq(recipient.balance, 2e18);
     }

@@ -139,11 +139,12 @@ contract Rollup {
             revert Errors.INVALID_VALUE();
         }
 
+        // public signals: [newRoot, root, publicKey, index]
         uint256 newRoot = input[0];
         uint256 root = input[1];
-        uint256 index = input[4];
         uint256 publicKeyX = input[2];
         uint256 publicKeyY = input[3];
+        uint256 index = input[4];
 
         if (root != balanceTreeRoot) {
             revert Errors.INVALID_MERKLE_TREE();
@@ -154,7 +155,6 @@ contract Rollup {
         
         // zkp is valid, just update balance
         user.balance += msg.value;
-
 
         if (!isPublicKeysRegistered[publicKeyHash]) {
             isPublicKeysRegistered[publicKeyHash] = true;
@@ -234,11 +234,17 @@ contract Rollup {
 
     function _getUserByPublicKey(uint256 publicKeyX, uint256 publicKeyY) internal view returns (User storage) {
         uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
+        if (!isPublicKeysRegistered[publicKeyHash]) {
+            revert Errors.INVALID_USER();
+        }
         return balanceTreeUsers[publicKeyHash];
     }
 
     function getUserByIndex(uint256 index) external view returns (User memory) {
         uint256 publicKeyHash = balanceTreeKeys[index];
+        if (!isPublicKeysRegistered[publicKeyHash]) {
+            revert Errors.INVALID_USER();
+        }
         return balanceTreeUsers[publicKeyHash];
     }
 
