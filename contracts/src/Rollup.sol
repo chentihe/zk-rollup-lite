@@ -141,9 +141,9 @@ contract Rollup {
 
         uint256 newRoot = input[0];
         uint256 root = input[1];
-        uint256 index = input[2];
-        uint256 publicKeyX = input[3];
-        uint256 publicKeyY = input[4];
+        uint256 index = input[4];
+        uint256 publicKeyX = input[2];
+        uint256 publicKeyY = input[3];
 
         if (root != balanceTreeRoot) {
             revert Errors.INVALID_MERKLE_TREE();
