@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	mt, err := accounttree.InitMerkleTree()
+	mt, err := accounttree.InitAccountTree()
 	if err != nil {
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}

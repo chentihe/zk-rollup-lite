@@ -1,28 +1,32 @@
 package services
 
 import (
+	"bytes"
 	"context"
-	"math/big"
+	"encoding/gob"
+	"strconv"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
-	"github.com/iden3/go-merkletree-sql/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 type TransactionService struct {
-	AccountService AccountService
-	MerkleTree     *merkletree.MerkleTree
+	AccountService *AccountService
+	AccountTree    *accounttree.AccountTree
+	Cache          *redis.Client
 }
 
-func NewTransactionService(accountService *AccountService, merkleTree *merkletree.MerkleTree) *TransactionService {
+func NewTransactionService(accountService *AccountService, accountTree *accounttree.AccountTree, cache *redis.Client) *TransactionService {
 	return &TransactionService{
-		AccountService: *accountService,
-		MerkleTree:     merkleTree,
+		AccountService: accountService,
+		AccountTree:    accountTree,
+		Cache:          cache,
 	}
 }
 
 func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) error {
-	ctx := context.Background()
+	context := context.Background()
 
 	fromAccount, err := service.AccountService.GetAccountByIndex(tx.From)
 	if err != nil {
@@ -38,46 +42,50 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return err
 	}
 
-	fromAccount.Balance = new(big.Int).Sub(fromAccount.Balance, tx.Amount)
-	fromAccount.Balance = new(big.Int).Sub(fromAccount.Balance, tx.Fee)
-	toAccount.Balance = new(big.Int).Add(toAccount.Balance, tx.Amount)
-	fromAccount.Nonce++
-
-	service.AccountService.UpdateAccount(fromAccount)
-	service.AccountService.UpdateAccount(toAccount)
-
 	if err = tx.VerifySignature(fromAccount.PublicKey); err != nil {
 		return err
 	}
 
-	fromLeaf, err := accounttree.GenerateAccountLeaf(fromAccount)
-	if err != nil {
+	fromAccount.Balance = fromAccount.Balance.Sub(fromAccount.Balance, tx.Amount)
+	fromAccount.Balance = fromAccount.Balance.Sub(fromAccount.Balance, tx.Fee)
+	toAccount.Balance = toAccount.Balance.Add(toAccount.Balance, tx.Amount)
+	fromAccount.Nonce++
+
+	if err := service.AccountService.UpdateAccount(fromAccount); err != nil {
 		return err
 	}
 
-	toLeaf, err := accounttree.GenerateAccountLeaf(toAccount)
-	if err != nil {
+	if err := service.AccountService.UpdateAccount(toAccount); err != nil {
 		return err
 	}
 
-	if _, err := service.MerkleTree.Update(
-		ctx,
-		big.NewInt(fromAccount.AccountIndex),
-		fromLeaf,
-	); err != nil {
+	if err := service.AccountTree.UpdateAccountTree(fromAccount); err != nil {
 		return err
 	}
 
-	if _, err := service.MerkleTree.Update(
-		ctx,
-		big.NewInt(toAccount.AccountIndex),
-		toLeaf,
-	); err != nil {
+	if err := service.AccountTree.UpdateAccountTree(toAccount); err != nil {
 		return err
 	}
 
 	// TODO: update the sent tx into redis
 	// call rollup func once the tx amount is reaching 2
+	const lastInertedKey = "last-inserted"
+	lastInsertedTx, err := service.Cache.Get(context, lastInertedKey).Int()
+	if err != nil {
+		return err
+	}
+
+	if lastInsertedTx == -1 {
+		lastInsertedTx = 0
+	}
+
+	encodedBytes := new(bytes.Buffer)
+	if err := gob.NewEncoder(encodedBytes).Encode(tx); err != nil {
+		return err
+	}
+
+	service.Cache.Set(context, strconv.Itoa(lastInsertedTx), encodedBytes, 0)
+	service.Cache.Set(context, lastInertedKey, lastInsertedTx+1, 0)
 
 	return nil
 }

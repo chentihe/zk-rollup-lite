@@ -3,6 +3,7 @@ package txmanager
 import (
 	"math/big"
 
+	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 )
@@ -69,7 +70,7 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 }
 
 func (txInfo *TransactionInfo) VerifySignature(comp string) error {
-	publicKey, err := DecodePublicKeyFromString(comp)
+	publicKey, err := accounttree.DecodePublicKeyFromString(comp)
 	if err != nil {
 		return err
 	}

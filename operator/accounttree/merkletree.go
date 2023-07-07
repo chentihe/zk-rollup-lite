@@ -5,16 +5,18 @@ import (
 	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/models"
-	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
-	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-merkletree-sql/v2/db/memory"
 )
 
 const mtDepth = 6
 
+type AccountTree struct {
+	MT *merkletree.MerkleTree
+}
+
 // TODO: check which one is better? memory or postgresdb
-func InitMerkleTree() (*merkletree.MerkleTree, error) {
+func InitAccountTree() (*AccountTree, error) {
 	// TODO: move to env
 	// urlExample := "postgres://username:password@localhost:5432/database-name"
 	// mtId := uint64(1)
@@ -36,24 +38,20 @@ func InitMerkleTree() (*merkletree.MerkleTree, error) {
 		return nil, err
 	}
 
-	return mt, nil
+	return &AccountTree{mt}, nil
 }
 
-func GenerateAccountLeaf(account *models.AccountModel) (*big.Int, error) {
-	publicKey, err := txmanager.DecodePublicKeyFromString(account.PublicKey)
+func (accountTree *AccountTree) UpdateAccountTree(account *models.AccountModel) error {
+	context := context.Background()
+
+	leaf, err := GenerateAccountLeaf(account)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	hashedLeaf, err := poseidon.Hash([]*big.Int{
-		publicKey.X,
-		publicKey.Y,
-		account.Balance,
-		big.NewInt(account.Nonce),
-	})
-	if err != nil {
-		return nil, err
+	if _, err := accountTree.MT.Update(context, big.NewInt(account.AccountIndex), leaf); err != nil {
+		return err
 	}
 
-	return hashedLeaf, nil
+	return nil
 }
