@@ -43,7 +43,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			return err
 		}
 
-		account = &models.AccountModel{
+		account = &models.Account{
 			AccountIndex: user.Index,
 			PublicKey:    publicKey.String(),
 			Balance:      user.Balance,

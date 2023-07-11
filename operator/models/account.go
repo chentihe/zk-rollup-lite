@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type AccountModel struct {
+type Account struct {
 	gorm.Model
 	AccountIndex int64  `gorm:"uniqueIndex"`
 	PublicKey    string `gorm:"uniqueIndex"`

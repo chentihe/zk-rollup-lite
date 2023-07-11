@@ -41,7 +41,7 @@ func InitAccountTree() (*AccountTree, error) {
 	return &AccountTree{mt}, nil
 }
 
-func (accountTree *AccountTree) UpdateAccountTree(account *models.AccountModel) error {
+func (accountTree *AccountTree) UpdateAccountTree(account *models.Account) error {
 	context := context.Background()
 
 	leaf, err := GenerateAccountLeaf(account)

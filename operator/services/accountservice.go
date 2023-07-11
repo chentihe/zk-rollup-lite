@@ -15,14 +15,14 @@ func NewAccountService(accountDao *daos.AccountDao) *AccountService {
 	}
 }
 
-func (service *AccountService) GetAccountByIndex(index int64) (account *models.AccountModel, err error) {
+func (service *AccountService) GetAccountByIndex(index int64) (account *models.Account, err error) {
 	return service.AccountDao.GetAccountByIndex(index)
 }
 
-func (service *AccountService) CreateAccount(account *models.AccountModel) (err error) {
+func (service *AccountService) CreateAccount(account *models.Account) (err error) {
 	return service.AccountDao.CreateAccount(account)
 }
 
-func (service *AccountService) UpdateAccount(account *models.AccountModel) (err error) {
+func (service *AccountService) UpdateAccount(account *models.Account) (err error) {
 	return service.AccountDao.UpdateAccount(account)
 }

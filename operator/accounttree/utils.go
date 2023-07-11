@@ -9,7 +9,7 @@ import (
 	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 
-func GenerateAccountLeaf(account *models.AccountModel) (*big.Int, error) {
+func GenerateAccountLeaf(account *models.Account) (*big.Int, error) {
 	publicKey, err := DecodePublicKeyFromString(account.PublicKey)
 	if err != nil {
 		return nil, err

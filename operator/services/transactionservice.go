@@ -1,27 +1,24 @@
 package services
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
-	"strconv"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
+	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
-	"github.com/redis/go-redis/v9"
 )
 
 type TransactionService struct {
 	AccountService *AccountService
 	AccountTree    *accounttree.AccountTree
-	Cache          *redis.Client
+	RedisCache     *dbcache.RedisCache
 }
 
-func NewTransactionService(accountService *AccountService, accountTree *accounttree.AccountTree, cache *redis.Client) *TransactionService {
+func NewTransactionService(accountService *AccountService, accountTree *accounttree.AccountTree, cache *dbcache.RedisCache) *TransactionService {
 	return &TransactionService{
 		AccountService: accountService,
 		AccountTree:    accountTree,
-		Cache:          cache,
+		RedisCache:     cache,
 	}
 }
 
@@ -69,23 +66,34 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 
 	// TODO: update the sent tx into redis
 	// call rollup func once the tx amount is reaching 2
-	const lastInertedKey = "last-inserted"
-	lastInsertedTx, err := service.Cache.Get(context, lastInertedKey).Int()
+	const lastInsertedKey = "last-inserted"
+	lastInsertedTx, err := service.RedisCache.Get(context, lastInsertedKey, new(int))
 	if err != nil {
 		return err
 	}
 
+	// no pending transactions to roll up
 	if lastInsertedTx == -1 {
 		lastInsertedTx = 0
 	}
 
-	encodedBytes := new(bytes.Buffer)
-	if err := gob.NewEncoder(encodedBytes).Encode(tx); err != nil {
-		return err
-	}
+	// encodedBytes := new(bytes.Buffer)
+	// if err := gob.NewEncoder(encodedBytes).Encode(tx); err != nil {
+	// 	return err
+	// }
+	service.RedisCache.Set(context, lastInsertedTx.(string), tx)
 
-	service.Cache.Set(context, strconv.Itoa(lastInsertedTx), encodedBytes, 0)
-	service.Cache.Set(context, lastInertedKey, lastInsertedTx+1, 0)
+	lastInsertedTx = lastInsertedTx.(int) + 1
+
+	const rollUpCommand = "execute roll up"
+
+	// TODO: add a subscriber to receive the rollup command
+	// and execute rollup to L1
+	if lastInsertedTx == 2 {
+		lastInsertedTx = -1
+		service.RedisCache.Publish(context, rollUpCommand)
+	}
+	service.RedisCache.Set(context, lastInsertedKey, lastInsertedTx)
 
 	return nil
 }
