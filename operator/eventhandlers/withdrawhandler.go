@@ -2,7 +2,6 @@ package eventhandlers
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
@@ -26,19 +25,24 @@ func AfterWithdraw(vLog *types.Log, accountService *services.AccountService, mt 
 
 	account, err := accountService.GetAccountByIndex(user.Index)
 	if err != nil {
-		return fmt.Errorf("Invalid account")
+		return err
 	}
 
 	account.Balance = user.Balance
 	account.Nonce = user.Nonce
+
+	if err := accountService.UpdateAccount(account); err != nil {
+		return err
+	}
 
 	accountLeaf, err := accounttree.GenerateAccountLeaf(account)
 	if err != nil {
 		return err
 	}
 
-	accountService.UpdateAccount(account)
-	mt.Update(context, big.NewInt(user.Index), accountLeaf)
+	if _, err := mt.Update(context, big.NewInt(user.Index), accountLeaf); err != nil {
+		return err
+	}
 
 	return nil
 }

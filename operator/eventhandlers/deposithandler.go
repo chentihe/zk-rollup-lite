@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
+	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -30,8 +31,8 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 
 	account, err := accountService.GetAccountByIndex(user.Index)
 
-	// if err occurs, this account is a new user
-	if err != nil {
+	switch err {
+	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
 		tx, _, err := client.TransactionByHash(context, vLog.TxHash)
 		if err != nil {
@@ -51,24 +52,36 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			L1Address:    sender.Hex(),
 		}
 
+		if err := accountService.CreateAccount(account); err != nil {
+			return err
+		}
+
 		accountLeaf, err := accounttree.GenerateAccountLeaf(account)
 		if err != nil {
 			return err
 		}
 
-		accountService.CreateAccount(account)
-		mt.Add(context, big.NewInt(user.Index), accountLeaf)
-	} else {
+		if err := mt.Add(context, big.NewInt(user.Index), accountLeaf); err != nil {
+			return err
+		}
+	case daos.ErrSqlOperation:
+		return err
+	default:
 		account.Balance = user.Balance
 		account.Nonce = user.Nonce
 
+		if err := accountService.UpdateAccount(account); err != nil {
+			return err
+		}
+
 		accountLeaf, err := accounttree.GenerateAccountLeaf(account)
 		if err != nil {
 			return err
 		}
 
-		accountService.UpdateAccount(account)
-		mt.Update(context, big.NewInt(user.Index), accountLeaf)
+		if _, err := mt.Update(context, big.NewInt(user.Index), accountLeaf); err != nil {
+			return err
+		}
 	}
 
 	return nil

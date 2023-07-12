@@ -87,11 +87,14 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 
 	const rollUpCommand = "execute roll up"
 
+	// TODO: move to config yaml
+	const channel = "pendingTx"
+
 	// TODO: add a subscriber to receive the rollup command
 	// and execute rollup to L1
 	if lastInsertedTx == 2 {
 		lastInsertedTx = -1
-		service.RedisCache.Publish(context, rollUpCommand)
+		service.RedisCache.Publish(context, channel, rollUpCommand)
 	}
 	service.RedisCache.Set(context, lastInsertedKey, lastInsertedTx)
 

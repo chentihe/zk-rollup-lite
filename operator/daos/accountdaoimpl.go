@@ -1,8 +1,6 @@
 package daos
 
 import (
-	"errors"
-
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"gorm.io/gorm"
 )
@@ -34,9 +32,9 @@ func (dao *AccountDaoImpl) GetAccountByIndex(index int64) (account *models.Accou
 		Where("account_index = ?", index).
 		First(&account)
 	if dbTx.Error != nil {
-		return nil, errors.New("db error: sql operation")
+		return nil, ErrSqlOperation
 	} else if dbTx.RowsAffected == 0 {
-		return nil, errors.New("db error: not found")
+		return nil, ErrAccountNotFound
 	}
 
 	return account, nil

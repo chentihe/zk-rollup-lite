@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chentihe/zk-rollup-lite/operator/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -48,7 +49,7 @@ func updateMerletree(accountSerivce *services.AccountService, mt *merkletree.Mer
 		Addresses: []common.Address{contractAddress},
 	}
 
-	contractAbi, err := abi.JSON(strings.NewReader(contractAbi))
+	contractAbi, err := abi.JSON(strings.NewReader(contracts.RollupABI))
 	if err != nil {
 		return err
 	}
