@@ -43,3 +43,13 @@ func DecodePublicKeyFromString(comp string) (*babyjub.PublicKey, error) {
 
 	return publicKey, nil
 }
+
+func StringifyPublicKey(comp string) (*[2]string, error) {
+	publicKey, err := DecodePublicKeyFromString(comp)
+	if err != nil {
+		return nil, err
+	}
+	x := publicKey.X.String()
+	y := publicKey.Y.String()
+	return &[2]string{x, y}, nil
+}

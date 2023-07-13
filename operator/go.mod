@@ -8,6 +8,11 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/iden3/go-iden3-crypto v0.0.15
 	github.com/iden3/go-merkletree-sql/v2 v2.0.5
+	github.com/iden3/go-rapidsnark/prover v0.0.10
+	github.com/iden3/go-rapidsnark/types v0.0.3
+	github.com/iden3/go-rapidsnark/verifier v0.0.5
+	github.com/iden3/go-rapidsnark/witness/v2 v2.0.0
+	github.com/iden3/go-rapidsnark/witness/wasmer v0.0.0-20230524142950-0986cf057d4e
 	github.com/redis/go-redis/v9 v9.0.5
 	gorm.io/gorm v1.25.1
 )
@@ -29,6 +34,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/holiman/uint256 v1.2.2 // indirect
+	github.com/iden3/wasmer-go v0.0.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect

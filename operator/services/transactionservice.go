@@ -2,9 +2,11 @@ package services
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
+	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 )
 
@@ -22,18 +24,47 @@ func NewTransactionService(accountService *AccountService, accountTree *accountt
 	}
 }
 
+type AccountInfo struct {
+	Account      *models.Account
+	PathElements []*big.Int
+}
+
+type RedisTxInfo struct {
+	Tx                                  *txmanager.TransactionInfo
+	Root                                *big.Int
+	Sender                              *AccountInfo
+	Recipient                           *AccountInfo
+	IntermediateBalanceTreeRoot         *big.Int
+	IntermediateBalanceTreePathElements []*big.Int
+}
+
 func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) error {
 	context := context.Background()
+	redisTxInfo := RedisTxInfo{Root: service.AccountTree.MT.Root().BigInt()}
 
 	fromAccount, err := service.AccountService.GetAccountByIndex(tx.From)
 	if err != nil {
 		return err
 	}
 
+	redisTxInfo.Sender.Account = fromAccount
+	senderPathElements, err := service.AccountTree.GetPathByAccount(fromAccount)
+	if err != nil {
+		return err
+	}
+	redisTxInfo.Sender.PathElements = senderPathElements
+
 	toAccount, err := service.AccountService.GetAccountByIndex(tx.To)
 	if err != nil {
 		return err
 	}
+
+	redisTxInfo.Recipient.Account = toAccount
+	recipientPathElements, err := service.AccountTree.GetPathByAccount(toAccount)
+	if err != nil {
+		return err
+	}
+	redisTxInfo.Recipient.PathElements = recipientPathElements
 
 	if err = tx.Validate(fromAccount.Nonce); err != nil {
 		return err
@@ -52,11 +83,19 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return err
 	}
 
-	if err := service.AccountService.UpdateAccount(toAccount); err != nil {
+	if err := service.AccountTree.UpdateAccountTree(fromAccount); err != nil {
 		return err
 	}
 
-	if err := service.AccountTree.UpdateAccountTree(fromAccount); err != nil {
+	// update intermediate tree info
+	intermediateBalanceTreePathElements, err := service.AccountTree.GetPathByAccount(toAccount)
+	if err != nil {
+		return err
+	}
+	redisTxInfo.IntermediateBalanceTreePathElements = intermediateBalanceTreePathElements
+	redisTxInfo.IntermediateBalanceTreeRoot = service.AccountTree.MT.Root().BigInt()
+
+	if err := service.AccountService.UpdateAccount(toAccount); err != nil {
 		return err
 	}
 
@@ -81,7 +120,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	// if err := gob.NewEncoder(encodedBytes).Encode(tx); err != nil {
 	// 	return err
 	// }
-	service.RedisCache.Set(context, lastInsertedTx.(string), tx)
+	service.RedisCache.Set(context, lastInsertedTx.(string), redisTxInfo)
 
 	lastInsertedTx = lastInsertedTx.(int) + 1
 

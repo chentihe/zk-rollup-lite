@@ -2,6 +2,7 @@ package txmanager
 
 import (
 	"math/big"
+	"strconv"
 
 	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/iden3/go-iden3-crypto/babyjub"
@@ -15,6 +16,18 @@ type TransactionInfo struct {
 	Fee       *big.Int
 	Nonce     int64
 	Signature *babyjub.Signature
+}
+
+func (txInfo *TransactionInfo) ToArray() []string {
+	stringFrom := strconv.Itoa(int(txInfo.From))
+	stringTo := strconv.Itoa(int(txInfo.To))
+	stringAmount := txInfo.Amount.String()
+	stringFee := txInfo.Fee.String()
+	stringNonce := strconv.Itoa(int(txInfo.Nonce))
+	stringR8X := txInfo.Signature.R8.X.String()
+	stringR8Y := txInfo.Signature.R8.Y.String()
+	stringS := txInfo.Signature.S.String()
+	return []string{stringFrom, stringTo, stringAmount, stringFee, stringNonce, stringR8X, stringR8Y, stringS}
 }
 
 func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {

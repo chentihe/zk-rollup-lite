@@ -5,9 +5,12 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"os"
 
 	"github.com/chentihe/zk-rollup-lite/operator/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
+	"github.com/chentihe/zk-rollup-lite/operator/services"
+	"github.com/chentihe/zk-rollup-lite/operator/zeroknowledge"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,8 +24,11 @@ type Subscriber struct {
 }
 
 const (
-	channel       = "pendingTx"
-	rollUpCommand = "execute roll up"
+	channel                = "pendingTx"
+	rollUpCommand          = "execute roll up"
+	zkeyFilePath           = "../prover/build/tx/circuit_final.zkey"
+	wasmFilePath           = "../prover/build/tx/circuit.wasm"
+	verficationKeyFilePath = "../prover/build/tx/verification_key.json"
 )
 
 func NewSubscriber(redisCache *dbcache.RedisCache, ethclient *ethclient.Client) *Subscriber {
@@ -40,14 +46,15 @@ func (sub *Subscriber) Close() error {
 
 const rollupAddress = ""
 
-func (sub *Subscriber) Receive(context context.Context, prvKey string) error {
+func (sub *Subscriber) Receive(context context.Context, redisCache *dbcache.RedisCache, accountService *services.AccountService) error {
 	ch := sub.pubsub.Channel()
 
 	for msg := range ch {
 		switch msg.String() {
 		case rollUpCommand:
 
-			privateKey, err := crypto.HexToECDSA(prvKey)
+			// get signer
+			privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
 			if err != nil {
 				return err
 			}
@@ -85,18 +92,49 @@ func (sub *Subscriber) Receive(context context.Context, prvKey string) error {
 			auth.GasLimit = uint64(300000)
 			auth.GasPrice = gasPrice
 
+			// init rollup contract
 			address := common.HexToAddress(rollupAddress)
 			instance, err := contracts.NewRollup(address, sub.ethclient)
 			if err != nil {
 				return err
 			}
 
-			// TODO: Get txs from redis and generate zkp(iden3 go lib)
-			tx, err := instance.RollUp(auth, a, b, c, input)
+			// get tx amounts from redis
+			const lastInsertedKey = "last-inserted"
+			lastInsertedTx, err := redisCache.Get(context, lastInsertedKey, new(int))
 			if err != nil {
 				return err
 			}
 
+			circuitInput, err := zeroknowledge.GenerateCircuitInput(lastInsertedTx.(int), redisCache, accountService)
+			if err != nil {
+				return err
+			}
+
+			proof, err := zeroknowledge.GenerateGroth16Proof(circuitInput)
+			if err != nil {
+				return err
+			}
+
+			if err := zeroknowledge.VerifierGroth16(proof); err != nil {
+				return err
+			}
+
+			bigIntProof, err := zeroknowledge.ParseProofToBigInt(proof)
+			if err != nil {
+				return err
+			}
+
+			tx, err := instance.RollUp(auth, bigIntProof.Proof.A, bigIntProof.Proof.B, bigIntProof.Proof.C, bigIntProof.PublicSignals)
+			if err != nil {
+				return err
+			}
+
+			if err := redisCache.Set(context, lastInsertedKey, -1); err != nil {
+				return err
+			}
+
+			fmt.Printf("Rollup finished: %v", tx)
 		default:
 			fmt.Printf("Error msg: %v", msg.String())
 		}
