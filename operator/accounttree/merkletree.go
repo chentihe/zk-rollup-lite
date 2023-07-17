@@ -41,22 +41,23 @@ func InitAccountTree() (*AccountTree, error) {
 	return &AccountTree{mt}, nil
 }
 
-func (accountTree *AccountTree) UpdateAccountTree(account *models.Account) error {
+func (accountTree *AccountTree) UpdateAccountTree(account *models.Account) (*merkletree.CircomProcessorProof, error) {
 	context := context.Background()
 
 	leaf, err := GenerateAccountLeaf(account)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if _, err := accountTree.MT.Update(context, big.NewInt(account.AccountIndex), leaf); err != nil {
-		return err
+	proof, err := accountTree.MT.Update(context, big.NewInt(account.AccountIndex), leaf)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return proof, nil
 }
 
-func (accountTree *AccountTree) GetPathByAccount(account *models.Account) ([]*big.Int, error) {
+func (accountTree *AccountTree) GetPathByAccount(account *models.Account) ([]*merkletree.Hash, error) {
 	context := context.Background()
 
 	index := account.AccountIndex
@@ -69,10 +70,30 @@ func (accountTree *AccountTree) GetPathByAccount(account *models.Account) ([]*bi
 	// fill the empty path
 	siblings = merkletree.CircomSiblingsFromSiblings(siblings, mtDepth)
 
-	pathElements := []*big.Int{}
-	for _, sibling := range siblings {
-		pathElements = append(pathElements, sibling.BigInt())
+	return siblings, nil
+}
+
+func (accountTree *AccountTree) GetRoot() *merkletree.Hash {
+	return accountTree.MT.Root()
+}
+
+func (accountTree *AccountTree) Add(key int64, value *big.Int) error {
+	context := context.Background()
+	return accountTree.MT.Add(context, big.NewInt(key), value)
+}
+
+func (accountTree *AccountTree) AddAndGetCircomProof(key int64, value *big.Int) (proof *merkletree.CircomProcessorProof, err error) {
+	context := context.Background()
+	return accountTree.MT.AddAndGetCircomProof(context, big.NewInt(key), value)
+}
+
+func (accountTree *AccountTree) GenerateProof(key *big.Int) (proof *merkletree.CircomVerifierProof, err error) {
+	context := context.Background()
+	root := accountTree.GetRoot()
+	proof, err = accountTree.MT.GenerateCircomVerifierProof(context, key, root)
+	if err != nil {
+		return nil, err
 	}
 
-	return pathElements, nil
+	return proof, nil
 }

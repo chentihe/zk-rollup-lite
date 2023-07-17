@@ -31,18 +31,19 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 
 	account, err := accountService.GetAccountByIndex(user.Index)
 
+	tx, _, err := client.TransactionByHash(context, vLog.TxHash)
+	if err != nil {
+		return err
+	}
+
+	sender, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
+	if err != nil {
+		return err
+	}
+
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
-		tx, _, err := client.TransactionByHash(context, vLog.TxHash)
-		if err != nil {
-			return err
-		}
-
-		sender, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
-		if err != nil {
-			return err
-		}
 
 		account = &models.Account{
 			AccountIndex: user.Index,
@@ -69,6 +70,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 	default:
 		account.Balance = user.Balance
 		account.Nonce = user.Nonce
+		account.L1Address = sender.Hex()
 
 		if err := accountService.UpdateAccount(account); err != nil {
 			return err

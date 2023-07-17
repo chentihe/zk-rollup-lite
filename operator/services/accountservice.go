@@ -19,6 +19,10 @@ func (service *AccountService) GetAccountByIndex(index int64) (account *models.A
 	return service.AccountDao.GetAccountByIndex(index)
 }
 
+func (service *AccountService) GetCurrentAccountIndex() (amount int64, err error) {
+	return service.AccountDao.GetCurrentAccountIndex()
+}
+
 func (service *AccountService) CreateAccount(account *models.Account) (err error) {
 	return service.AccountDao.CreateAccount(account)
 }

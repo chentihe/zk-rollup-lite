@@ -21,4 +21,6 @@ var (
 	ErrToAccountIndexTooHigh   = fmt.Errorf("ToAccountIndex should not be larger than %d", maxAccountIndex)
 
 	ErrInvalidSignature = fmt.Errorf("Invalid signature")
+
+	ErrAccountNotExist = fmt.Errorf("Account doesn't exist")
 )

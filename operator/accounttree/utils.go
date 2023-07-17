@@ -7,6 +7,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-iden3-crypto/poseidon"
+	"github.com/iden3/go-merkletree-sql/v2"
 )
 
 func GenerateAccountLeaf(account *models.Account) (*big.Int, error) {
@@ -52,4 +53,12 @@ func StringifyPublicKey(comp string) (*[2]string, error) {
 	x := publicKey.X.String()
 	y := publicKey.Y.String()
 	return &[2]string{x, y}, nil
+}
+
+func StringifyPath(siblings []*merkletree.Hash) []string {
+	pathElements := []string{}
+	for _, sibling := range siblings {
+		pathElements = append(pathElements, sibling.String())
+	}
+	return pathElements
 }

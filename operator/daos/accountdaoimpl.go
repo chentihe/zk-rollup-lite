@@ -40,6 +40,31 @@ func (dao *AccountDaoImpl) GetAccountByIndex(index int64) (account *models.Accou
 	return account, nil
 }
 
+func (dao *AccountDaoImpl) GetAccountByPublicKey(comp string) (account *models.Account, err error) {
+	dbTx := dao.DB.
+		Where("public_key = ?", comp).
+		First(&account)
+	if dbTx.Error != nil {
+		return nil, ErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return nil, ErrAccountNotFound
+	}
+
+	return account, nil
+}
+
+func (dao *AccountDaoImpl) GetCurrentAccountIndex() (amount int64, err error) {
+	var count int64
+	dbTx := dao.DB.Table(dao.table).Count(&count)
+	if dbTx.Error != nil {
+		return 0, ErrSqlOperation
+	} else if dbTx.RowsAffected == 0 {
+		return 0, ErrAccountNotFound
+	}
+
+	return count - 1, nil
+}
+
 func (dao *AccountDaoImpl) CreateAccount(account *models.Account) (err error) {
 	dbTx := dao.DB.Create(&account)
 	if dbTx.Error != nil {

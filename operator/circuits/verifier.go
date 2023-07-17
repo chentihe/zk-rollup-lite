@@ -1,4 +1,4 @@
-package zeroknowledge
+package circuits
 
 import (
 	"os"
@@ -7,9 +7,9 @@ import (
 	"github.com/iden3/go-rapidsnark/verifier"
 )
 
-func VerifierGroth16(proof *types.ZKProof) error {
+func VerifierGroth16(proof *types.ZKProof, circuitPath string) error {
 	// verify zkp
-	vkeyBytes, err := os.ReadFile(verficationKeyFilePath)
+	vkeyBytes, err := os.ReadFile(circuitPath + verficationKeyFilePath)
 	if err != nil {
 		return err
 	}

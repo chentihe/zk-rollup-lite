@@ -1,4 +1,4 @@
-package zeroknowledge
+package circuits
 
 import "fmt"
 

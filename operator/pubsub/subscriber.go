@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 
+	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
-	"github.com/chentihe/zk-rollup-lite/operator/services"
-	"github.com/chentihe/zk-rollup-lite/operator/zeroknowledge"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -22,14 +22,6 @@ type Subscriber struct {
 	pubsub    *redis.PubSub
 	ethclient *ethclient.Client
 }
-
-const (
-	channel                = "pendingTx"
-	rollUpCommand          = "execute roll up"
-	zkeyFilePath           = "../prover/build/tx/circuit_final.zkey"
-	wasmFilePath           = "../prover/build/tx/circuit.wasm"
-	verficationKeyFilePath = "../prover/build/tx/verification_key.json"
-)
 
 func NewSubscriber(redisCache *dbcache.RedisCache, ethclient *ethclient.Client) *Subscriber {
 	pubsub := redisCache.Subscribe(context.Background(), channel)
@@ -44,16 +36,14 @@ func (sub *Subscriber) Close() error {
 	return sub.pubsub.Close()
 }
 
-const rollupAddress = ""
-
-func (sub *Subscriber) Receive(context context.Context, redisCache *dbcache.RedisCache, accountService *services.AccountService) error {
+func (sub *Subscriber) Receive(context context.Context, redisCache *dbcache.RedisCache) error {
 	ch := sub.pubsub.Channel()
 
 	for msg := range ch {
 		switch msg.String() {
 		case rollUpCommand:
 
-			// get signer
+			// TODO: wrap to GetContract()
 			privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
 			if err != nil {
 				return err
@@ -106,26 +96,41 @@ func (sub *Subscriber) Receive(context context.Context, redisCache *dbcache.Redi
 				return err
 			}
 
-			circuitInput, err := zeroknowledge.GenerateCircuitInput(lastInsertedTx.(int), redisCache, accountService)
+			var rollupInputs circuits.RollupInputs
+
+			for i := 0; i < lastInsertedTx.(int); i++ {
+				object, err := redisCache.Get(context, strconv.Itoa(i), new(circuits.RollupTx))
+				if err != nil {
+					return err
+				}
+
+				tx, ok := object.(circuits.RollupTx)
+				if !ok {
+					return circuits.ErrTx
+				}
+				rollupInputs.Txs = append(rollupInputs.Txs, &tx)
+			}
+
+			circuitInput, err := rollupInputs.InputsMarshal()
 			if err != nil {
 				return err
 			}
 
-			proof, err := zeroknowledge.GenerateGroth16Proof(circuitInput)
+			proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/tx")
 			if err != nil {
 				return err
 			}
 
-			if err := zeroknowledge.VerifierGroth16(proof); err != nil {
+			if err = circuits.VerifierGroth16(proof, circuitPath+"/tx"); err != nil {
 				return err
 			}
 
-			bigIntProof, err := zeroknowledge.ParseProofToBigInt(proof)
-			if err != nil {
+			var rollupOutputs circuits.RollupOutputs
+			if err = rollupOutputs.OutputUnmarshal(proof); err != nil {
 				return err
 			}
 
-			tx, err := instance.RollUp(auth, bigIntProof.Proof.A, bigIntProof.Proof.B, bigIntProof.Proof.C, bigIntProof.PublicSignals)
+			tx, err := instance.RollUp(auth, rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
 			if err != nil {
 				return err
 			}
