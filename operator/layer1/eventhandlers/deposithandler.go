@@ -4,10 +4,10 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -29,8 +29,6 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 
 	publicKey := babyjub.PublicKey(babyjub.Point{X: user.PublicKeyX, Y: user.PublicKeyY})
 
-	account, err := accountService.GetAccountByIndex(user.Index)
-
 	tx, _, err := client.TransactionByHash(context, vLog.TxHash)
 	if err != nil {
 		return err
@@ -41,10 +39,10 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 		return err
 	}
 
+	account, err := accountService.GetAccountByIndex(user.Index)
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
-
 		account = &models.Account{
 			AccountIndex: user.Index,
 			PublicKey:    publicKey.String(),
@@ -57,7 +55,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			return err
 		}
 
-		accountLeaf, err := accounttree.GenerateAccountLeaf(account)
+		accountLeaf, err := tree.GenerateAccountLeaf(account)
 		if err != nil {
 			return err
 		}
@@ -76,7 +74,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			return err
 		}
 
-		accountLeaf, err := accounttree.GenerateAccountLeaf(account)
+		accountLeaf, err := tree.GenerateAccountLeaf(account)
 		if err != nil {
 			return err
 		}

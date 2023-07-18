@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-rapidsnark/types"
 )
@@ -49,13 +49,13 @@ func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 		NewKey:          d.MTProof.NewKey.String(),
 	}
 
-	publicKey, err := accounttree.StringifyPublicKey(d.Account.PublicKey)
+	publicKey, err := tree.StringifyPublicKey(d.Account.PublicKey)
 	if err != nil {
 		return nil, err
 	}
 	circuitInputs.PublicKey = *publicKey
 
-	circuitInputs.PathElements = accounttree.StringifyPath(d.MTProof.Siblings)
+	circuitInputs.PathElements = tree.StringifyPath(d.MTProof.Siblings)
 
 	if d.MTProof.IsOld0 {
 		circuitInputs.IsOld0 = "1"

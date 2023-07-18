@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-rapidsnark/types"
@@ -53,12 +53,12 @@ func (r *RollupInputs) InputsMarshal() ([]byte, error) {
 	for i := 0; i < len; i++ {
 		tx := r.Txs[i]
 
-		senderPublicKey, err := accounttree.StringifyPublicKey(tx.Sender.Account.PublicKey)
+		senderPublicKey, err := tree.StringifyPublicKey(tx.Sender.Account.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 
-		recipientPublicKey, err := accounttree.StringifyPublicKey(tx.Recipient.Account.PublicKey)
+		recipientPublicKey, err := tree.StringifyPublicKey(tx.Recipient.Account.PublicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -70,17 +70,17 @@ func (r *RollupInputs) InputsMarshal() ([]byte, error) {
 		circuitInputs.TxSendersPublicKey = append(circuitInputs.TxSendersPublicKey, *senderPublicKey)
 		circuitInputs.TxSendersBalance = append(circuitInputs.TxSendersBalance, tx.Sender.Account.Balance.String())
 		circuitInputs.TxSendersNonce = append(circuitInputs.TxSendersNonce, strconv.Itoa(int(tx.Sender.Account.Nonce)))
-		circuitInputs.TxSendersPathElements = append(circuitInputs.TxSendersPathElements, accounttree.StringifyPath(tx.Sender.PathElements))
+		circuitInputs.TxSendersPathElements = append(circuitInputs.TxSendersPathElements, tree.StringifyPath(tx.Sender.PathElements))
 
 		// recipient
 		circuitInputs.TxRecipientsPublicKey = append(circuitInputs.TxRecipientsPublicKey, *recipientPublicKey)
 		circuitInputs.TxRecipientsBalance = append(circuitInputs.TxRecipientsBalance, tx.Recipient.Account.Balance.String())
 		circuitInputs.TxRecipientsNonce = append(circuitInputs.TxRecipientsNonce, strconv.Itoa(int(tx.Recipient.Account.Nonce)))
-		circuitInputs.TxRecipientsPathElements = append(circuitInputs.TxRecipientsPathElements, accounttree.StringifyPath(tx.Sender.PathElements))
+		circuitInputs.TxRecipientsPathElements = append(circuitInputs.TxRecipientsPathElements, tree.StringifyPath(tx.Sender.PathElements))
 
 		// intermediate info
 		circuitInputs.IntermediateBalanceTreeRoots = append(circuitInputs.IntermediateBalanceTreeRoots, tx.IntermediateBalanceTreeRoot.String())
-		circuitInputs.IntermediateBalanceTreesPathElements = append(circuitInputs.IntermediateBalanceTreesPathElements, accounttree.StringifyPath(tx.IntermediateBalanceTreePathElements))
+		circuitInputs.IntermediateBalanceTreesPathElements = append(circuitInputs.IntermediateBalanceTreesPathElements, tree.StringifyPath(tx.IntermediateBalanceTreePathElements))
 	}
 
 	return json.Marshal(circuitInputs)

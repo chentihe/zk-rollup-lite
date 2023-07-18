@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 )
@@ -59,16 +59,9 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 		return ErrAmountTooHigh
 	}
 
-	if txInfo.Fee == nil {
-		return ErrFeeAmountNil
-	}
-
-	if txInfo.Fee.Cmp(minFeeAmount) < 0 {
-		return ErrFeeAmountTooLow
-	}
-
-	if txInfo.Fee.Cmp(maxFeeAmount) > 0 {
-		return ErrFeeAmountTooHigh
+	// fix the fee
+	if txInfo.Fee != fee {
+		txInfo.Fee = fee
 	}
 
 	if txInfo.Nonce < minNonce {
@@ -83,7 +76,7 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 }
 
 func (txInfo *TransactionInfo) VerifySignature(comp string) error {
-	publicKey, err := accounttree.DecodePublicKeyFromString(comp)
+	publicKey, err := tree.DecodePublicKeyFromString(comp)
 	if err != nil {
 		return err
 	}

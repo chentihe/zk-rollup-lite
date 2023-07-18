@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
+	accounttree "github.com/chentihe/zk-rollup-lite/operator/tree"
 )
 
 func main() {

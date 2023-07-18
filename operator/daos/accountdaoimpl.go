@@ -62,7 +62,7 @@ func (dao *AccountDaoImpl) GetCurrentAccountIndex() (amount int64, err error) {
 		return 0, ErrAccountNotFound
 	}
 
-	return count - 1, nil
+	return count, nil
 }
 
 func (dao *AccountDaoImpl) CreateAccount(account *models.Account) (err error) {

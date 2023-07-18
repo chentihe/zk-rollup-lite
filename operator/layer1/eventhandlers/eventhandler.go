@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/chentihe/zk-rollup-lite/operator/contracts"
+	"github.com/chentihe/zk-rollup-lite/operator/layer1/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -25,24 +25,9 @@ type User struct {
 	Nonce      int64    `json:"nonce"`
 }
 
-func initEthClient() (*ethclient.Client, error) {
-	// TODO: change to yaml config
-	client, err := ethclient.Dial(os.Getenv("WEBSOCKER_URL"))
-
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-func updateMerletree(accountSerivce *services.AccountService, mt *merkletree.MerkleTree) error {
+// TODO: wrap into struct
+func InitEventListener(ethClient *ethclient.Client, accountSerivce *services.AccountService, mt *merkletree.MerkleTree) error {
 	ctx := context.Background()
-
-	client, err := initEthClient()
-	if err != nil {
-		return err
-	}
 
 	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
 	query := ethereum.FilterQuery{
@@ -55,7 +40,7 @@ func updateMerletree(accountSerivce *services.AccountService, mt *merkletree.Mer
 	}
 
 	logs := make(chan types.Log)
-	sub, err := client.SubscribeFilterLogs(context.Background(), query, logs)
+	sub, err := ethClient.SubscribeFilterLogs(context.Background(), query, logs)
 	if err != nil {
 		return err
 	}
@@ -70,7 +55,7 @@ func updateMerletree(accountSerivce *services.AccountService, mt *merkletree.Mer
 			switch vLog.Topics[0] {
 			case depositHash:
 				fmt.Println("Deposit Event")
-				if err := AfterDeposit(&vLog, accountSerivce, mt, &contractAbi, ctx, client); err != nil {
+				if err := AfterDeposit(&vLog, accountSerivce, mt, &contractAbi, ctx, ethClient); err != nil {
 					return err
 				}
 			case withdrawHash:

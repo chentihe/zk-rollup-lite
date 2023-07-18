@@ -4,8 +4,8 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/chentihe/zk-rollup-lite/operator/accounttree"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/iden3/go-merkletree-sql/v2"
@@ -35,7 +35,7 @@ func AfterWithdraw(vLog *types.Log, accountService *services.AccountService, mt 
 		return err
 	}
 
-	accountLeaf, err := accounttree.GenerateAccountLeaf(account)
+	accountLeaf, err := tree.GenerateAccountLeaf(account)
 	if err != nil {
 		return err
 	}

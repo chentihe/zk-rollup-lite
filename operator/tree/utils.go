@@ -1,4 +1,4 @@
-package accounttree
+package tree
 
 import (
 	"encoding/hex"
