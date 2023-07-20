@@ -1,27 +1,20 @@
 package eventhandlers
 
 import (
-	"context"
-	"math/big"
-
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
-	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-iden3-crypto/babyjub"
-	"github.com/iden3/go-merkletree-sql/v2"
 )
 
 type Deposit struct {
 	User User
 }
 
-func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *merkletree.MerkleTree, contractAbi *abi.ABI, context context.Context, client *ethclient.Client) error {
+func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 	var deposit Deposit
-	if err := contractAbi.UnpackIntoInterface(&deposit, "Deposit", vLog.Data); err != nil {
+	if err := e.abi.UnpackIntoInterface(&deposit, "Deposit", vLog.Data); err != nil {
 		return err
 	}
 
@@ -29,7 +22,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 
 	publicKey := babyjub.PublicKey(babyjub.Point{X: user.PublicKeyX, Y: user.PublicKeyY})
 
-	tx, _, err := client.TransactionByHash(context, vLog.TxHash)
+	tx, _, err := e.ethClient.TransactionByHash(e.context, vLog.TxHash)
 	if err != nil {
 		return err
 	}
@@ -39,7 +32,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 		return err
 	}
 
-	account, err := accountService.GetAccountByIndex(user.Index)
+	account, err := e.accountService.GetAccountByIndex(user.Index)
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
@@ -51,7 +44,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			L1Address:    sender.Hex(),
 		}
 
-		if err := accountService.CreateAccount(account); err != nil {
+		if err := e.accountService.CreateAccount(account); err != nil {
 			return err
 		}
 
@@ -60,7 +53,7 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 			return err
 		}
 
-		if err := mt.Add(context, big.NewInt(user.Index), accountLeaf); err != nil {
+		if err := e.accountTree.Add(user.Index, accountLeaf); err != nil {
 			return err
 		}
 	case daos.ErrSqlOperation:
@@ -70,16 +63,11 @@ func AfterDeposit(vLog *types.Log, accountService *services.AccountService, mt *
 		account.Nonce = user.Nonce
 		account.L1Address = sender.Hex()
 
-		if err := accountService.UpdateAccount(account); err != nil {
+		if err := e.accountService.UpdateAccount(account); err != nil {
 			return err
 		}
 
-		accountLeaf, err := tree.GenerateAccountLeaf(account)
-		if err != nil {
-			return err
-		}
-
-		if _, err := mt.Update(context, big.NewInt(user.Index), accountLeaf); err != nil {
+		if _, err := e.accountTree.UpdateAccountTree(account); err != nil {
 			return err
 		}
 	}

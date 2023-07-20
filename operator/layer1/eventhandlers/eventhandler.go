@@ -7,14 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
+	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/iden3/go-merkletree-sql/v2"
 )
 
 type User struct {
@@ -25,43 +26,64 @@ type User struct {
 	Nonce      int64    `json:"nonce"`
 }
 
-// TODO: wrap into struct
-func InitEventListener(ethClient *ethclient.Client, accountSerivce *services.AccountService, mt *merkletree.MerkleTree) error {
-	ctx := context.Background()
+type EventHandler struct {
+	context        context.Context
+	ethClient      *ethclient.Client
+	query          ethereum.FilterQuery
+	logs           chan types.Log
+	sub            ethereum.Subscription
+	abi            abi.ABI
+	accountService *services.AccountService
+	accountTree    *tree.AccountTree
+}
 
+func NewEventHandler(context context.Context, svc *config.ServiceContext) (*EventHandler, error) {
 	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
+
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{contractAddress},
 	}
 
 	contractAbi, err := abi.JSON(strings.NewReader(contracts.RollupABI))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	logs := make(chan types.Log)
-	sub, err := ethClient.SubscribeFilterLogs(context.Background(), query, logs)
+
+	sub, err := svc.EthClient.SubscribeFilterLogs(context, query, logs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Println("Listening to events...")
+	return &EventHandler{
+		context:        context,
+		query:          query,
+		logs:           logs,
+		sub:            sub,
+		abi:            contractAbi,
+		accountService: svc.AccountService,
+		accountTree:    svc.AccountTree,
+	}, nil
+}
 
+func (e *EventHandler) Listening() {
+	fmt.Println("Listening to events...")
 	for {
 		select {
-		case err := <-sub.Err():
-			return err
-		case vLog := <-logs:
+		case err := <-e.sub.Err():
+			fmt.Printf("Subscription err: %v", err)
+		case vLog := <-e.logs:
 			switch vLog.Topics[0] {
 			case depositHash:
 				fmt.Println("Deposit Event")
-				if err := AfterDeposit(&vLog, accountSerivce, mt, &contractAbi, ctx, ethClient); err != nil {
-					return err
+				if err := e.afterDeposit(&vLog); err != nil {
+					fmt.Printf("Deposit event err: %v", err)
 				}
 			case withdrawHash:
 				fmt.Println("Withdraw Event")
-				if err := AfterWithdraw(&vLog, accountSerivce, mt, &contractAbi, ctx); err != nil {
-					return err
+				if err := e.afterWithdraw(&vLog); err != nil {
+					fmt.Printf("Withdraw event err: %v", err)
 				}
 			}
 		}
