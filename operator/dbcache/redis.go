@@ -59,15 +59,3 @@ func (cache *RedisCache) Set(context context.Context, key string, value interfac
 func (cache *RedisCache) Close() error {
 	return cache.client.Close()
 }
-
-// channel = "pendingTx"
-func (cache *RedisCache) Publish(context context.Context, channel string, msg string) error {
-	if err := cache.client.Publish(context, channel, msg).Err(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (cache *RedisCache) Subscribe(context context.Context, channel string) *redis.PubSub {
-	return cache.client.Subscribe(context, channel)
-}

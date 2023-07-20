@@ -1,4 +1,4 @@
-package eventhandlers
+package eventhandler
 
 import "github.com/ethereum/go-ethereum/crypto"
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/chentihe/zk-rollup-lite/operator/config"
-	"github.com/chentihe/zk-rollup-lite/operator/layer1/eventhandlers"
 	"github.com/chentihe/zk-rollup-lite/operator/routes"
 	"github.com/gin-gonic/gin"
 )
@@ -20,13 +18,7 @@ func main() {
 	context := context.Background()
 
 	svc := config.NewServiceContext(context)
-
-	eventHandler, err := eventhandlers.NewEventHandler(context, svc)
-	if err != nil {
-		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
-	}
-	// TODO: use go routine to listen contract events
-	eventHandler.Listening()
+	svc.StartDaemon()
 
 	router := gin.Default()
 	routes.RegisterRouters(router, svc)

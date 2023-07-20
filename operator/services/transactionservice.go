@@ -3,16 +3,18 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
-	"github.com/chentihe/zk-rollup-lite/operator/layer1/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-merkletree-sql/v2"
 )
@@ -23,24 +25,24 @@ type TransactionService struct {
 	redisCache     *dbcache.RedisCache
 	ethClient      *ethclient.Client
 	signer         *clients.Signer
-	contract       *contracts.Rollup
+	abi            *abi.ABI
 	context        context.Context
 }
 
-func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *dbcache.RedisCache, ethClient *ethclient.Client, signer *clients.Signer, contract *contracts.Rollup, context context.Context) *TransactionService {
+func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *dbcache.RedisCache, ethClient *ethclient.Client, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
 		redisCache:     cache,
 		ethClient:      ethClient,
 		signer:         signer,
-		contract:       contract,
+		abi:            abi,
 		context:        context,
 	}
 }
 
 // user can deposit on their own or via our app
-func (service *TransactionService) Deposit(deposit txmanager.DepositInfo) error {
+func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) ([]byte, error) {
 	depositInputs := &circuits.DepositInputs{
 		Root:          service.accountTree.GetRoot(),
 		DepositAmount: deposit.DepositAmount,
@@ -54,7 +56,7 @@ func (service *TransactionService) Deposit(deposit txmanager.DepositInfo) error 
 	if err == daos.ErrAccountNotFound {
 		userIndex, err := service.accountService.GetCurrentAccountIndex()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		account = &models.Account{
@@ -65,23 +67,23 @@ func (service *TransactionService) Deposit(deposit txmanager.DepositInfo) error 
 		}
 
 		if err := service.accountService.CreateAccount(account); err != nil {
-			return err
+			return nil, err
 		}
 
 		leaf, err := tree.GenerateAccountLeaf(account)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		mtProof, err = service.accountTree.AddAndGetCircomProof(userIndex, leaf)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else {
 		// mock update to get the circuit processor proof
 		mtProof, err = service.accountTree.UpdateAccountTree(account)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -90,41 +92,51 @@ func (service *TransactionService) Deposit(deposit txmanager.DepositInfo) error 
 
 	circuitInput, err := depositInputs.InputsMarshal()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
-		return err
+		return nil, err
 	}
 
 	var depositOutputs circuits.DepositOutputs
 	if err = depositOutputs.OutputUnmarshal(proof); err != nil {
-		return err
+		return nil, err
 	}
 
-	auth, err := service.signer.GetAuth(service.ethClient, service.context)
+	data, err := service.abi.Pack("deposit", depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tx, err := service.contract.Deposit(auth, depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
+	tx, err := service.signer.GenerateDynamicTx(service.ethClient, common.HexToAddress(rollupAddress), data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Printf("Deposit finished: %v", tx)
+	signedTx, err := service.signer.SignTx(tx)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	rawTxBytes, err := signedTx.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Deposit finished: %v", signedTx)
+
+	return rawTxBytes, nil
 }
 
-func (service *TransactionService) Withdraw(withdraw txmanager.WithdrawInfo) error {
+func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) ([]byte, error) {
 	if err := withdraw.VerifySignature(); err != nil {
-		return err
+		return nil, err
 	}
 
 	withdrawInputs := &circuits.WithdrawInputs{
@@ -136,13 +148,13 @@ func (service *TransactionService) Withdraw(withdraw txmanager.WithdrawInfo) err
 
 	account, err := service.accountService.GetAccountByIndex(withdraw.AccountIndex)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// mock update to get the circuit processor proof
 	mtProof, err := service.accountTree.UpdateAccountTree(account)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	withdrawInputs.Account = account
@@ -150,74 +162,84 @@ func (service *TransactionService) Withdraw(withdraw txmanager.WithdrawInfo) err
 
 	circuitInput, err := withdrawInputs.InputsMarshal()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/withdraw")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
-		return err
+	if err = circuits.VerifierGroth16(proof, circuitPath+"/withdraw"); err != nil {
+		return nil, err
 	}
 
 	var withdrawOutputs circuits.WithdrawOutputs
 	if err = withdrawOutputs.OutputUnmarshal(proof); err != nil {
-		return err
+		return nil, err
 	}
 
-	auth, err := service.signer.GetAuth(service.ethClient, service.context)
+	data, err := service.abi.Pack("withdraw", withdraw.WithdrawAmount, withdrawOutputs.Proof.A, withdrawOutputs.Proof.B, withdrawOutputs.Proof.C, withdrawOutputs.PublicSignals)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	tx, err := service.contract.Withdraw(auth, withdraw.WithdrawAmount, withdrawOutputs.Proof.A, withdrawOutputs.Proof.B, withdrawOutputs.Proof.C, withdrawOutputs.PublicSignals)
+	tx, err := service.signer.GenerateDynamicTx(service.ethClient, common.HexToAddress(rollupAddress), data)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	signedTx, err := service.signer.SignTx(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	rawTxBytes, err := signedTx.MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
 
 	fmt.Printf("Withdraw finished: %v", tx)
 
-	return nil
+	return rawTxBytes, nil
 }
 
-func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) error {
+func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) (int64, error) {
 	// create a rollup tx object to save into redis
 	redisTx := circuits.RollupTx{Root: service.accountTree.GetRoot()}
 
 	fromAccount, err := service.accountService.GetAccountByIndex(tx.From)
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	// validate txinfo
 	if err = tx.Validate(fromAccount.Nonce); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	// validate signature
 	if err = tx.VerifySignature(fromAccount.PublicKey); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	// set sender data into rollup tx
 	redisTx.Sender.Account = fromAccount
 	senderPathElements, err := service.accountTree.GetPathByAccount(fromAccount)
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 	redisTx.Sender.PathElements = senderPathElements
 
 	toAccount, err := service.accountService.GetAccountByIndex(tx.To)
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	redisTx.Recipient.Account = toAccount
 	recipientPathElements, err := service.accountTree.GetPathByAccount(toAccount)
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 	redisTx.Recipient.PathElements = recipientPathElements
 
@@ -227,17 +249,17 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	fromAccount.Nonce++
 
 	if err := service.accountService.UpdateAccount(fromAccount); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	if _, err := service.accountTree.UpdateAccountTree(fromAccount); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	// update intermediate tree info
 	intermediateBalanceTreePathElements, err := service.accountTree.GetPathByAccount(toAccount)
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 	redisTx.IntermediateBalanceTreePathElements = intermediateBalanceTreePathElements
 	redisTx.IntermediateBalanceTreeRoot = service.accountTree.GetRoot()
@@ -246,16 +268,16 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	toAccount.Balance = toAccount.Balance.Add(toAccount.Balance, tx.Amount)
 
 	if err := service.accountService.UpdateAccount(toAccount); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	if _, err := service.accountTree.UpdateAccountTree(toAccount); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	lastInsertedTx, err := service.redisCache.Get(service.context, lastInsertedKey, new(int))
 	if err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	// no pending transactions to roll up
@@ -268,7 +290,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	// 	return err
 	// }
 	if err = service.redisCache.Set(service.context, lastInsertedTx.(string), redisTx); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
 	lastInsertedTx = lastInsertedTx.(int) + 1
@@ -277,18 +299,15 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	// reset the inserted tx to -1
 	if lastInsertedTx == 2 {
 		lastInsertedTx = -1
-		if err = service.redisCache.Publish(service.context, channel, rollUpCommand); err != nil {
-			return err
-		}
 
 		if err = service.redisCache.Set(service.context, lastInsertedTx.(string), redisTx); err != nil {
-			return err
+			return math.MaxInt64, err
 		}
 	}
 
 	if err = service.redisCache.Set(service.context, lastInsertedKey, lastInsertedTx); err != nil {
-		return err
+		return math.MaxInt64, err
 	}
 
-	return nil
+	return lastInsertedTx.(int64), nil
 }

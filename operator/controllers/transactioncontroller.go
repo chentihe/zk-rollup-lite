@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"math"
 	"net/http"
 
+	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/gin-gonic/gin"
@@ -10,11 +12,13 @@ import (
 
 type TransactionController struct {
 	TransactionService *services.TransactionService
+	TransactionPubSub  dbcache.Subscriber
 }
 
-func NewTransactionController(transactionService *services.TransactionService) *TransactionController {
+func NewTransactionController(transactionService *services.TransactionService, pubsub *dbcache.Subscriber) *TransactionController {
 	return &TransactionController{
 		TransactionService: transactionService,
+		TransactionPubSub:  *pubsub,
 	}
 }
 
@@ -24,8 +28,13 @@ func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 		panic(err)
 	}
 
-	if err := c.TransactionService.SendTransaction(&tx); err != nil {
+	savedTxs, err := c.TransactionService.SendTransaction(&tx)
+	if err != nil || savedTxs == math.MaxInt64 {
 		panic(err)
+	}
+
+	if savedTxs == -1 {
+		c.TransactionPubSub.Publish("execute roll up")
 	}
 
 	ctx.IndentedJSON(http.StatusOK, "tx finished")
@@ -37,9 +46,12 @@ func (c *TransactionController) Deposit(ctx *gin.Context) {
 		panic(err)
 	}
 
-	if err := c.TransactionService.Deposit(deposit); err != nil {
+	txBytes, err := c.TransactionService.Deposit(&deposit)
+	if err != nil {
 		panic(err)
 	}
+
+	c.TransactionPubSub.Publish(txBytes)
 
 	ctx.IndentedJSON(http.StatusOK, "deposit finished")
 }
@@ -50,9 +62,12 @@ func (c *TransactionController) Withdraw(ctx *gin.Context) {
 		panic(err)
 	}
 
-	if err := c.TransactionService.Withdraw(withdraw); err != nil {
+	txBytes, err := c.TransactionService.Withdraw(&withdraw)
+	if err != nil {
 		panic(err)
 	}
+
+	c.TransactionPubSub.Publish(txBytes)
 
 	ctx.IndentedJSON(http.StatusOK, "withdraw finished")
 }
