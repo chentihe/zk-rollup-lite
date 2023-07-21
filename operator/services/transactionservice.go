@@ -2,19 +2,17 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 
+	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
-	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-merkletree-sql/v2"
 )
@@ -22,14 +20,14 @@ import (
 type TransactionService struct {
 	accountService *AccountService
 	accountTree    *tree.AccountTree
-	redisCache     *dbcache.RedisCache
+	redisCache     *cache.RedisCache
 	ethClient      *ethclient.Client
 	signer         *clients.Signer
 	abi            *abi.ABI
 	context        context.Context
 }
 
-func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *dbcache.RedisCache, ethClient *ethclient.Client, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
+func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, ethClient *ethclient.Client, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
@@ -41,8 +39,8 @@ func NewTransactionService(accountService *AccountService, tree *tree.AccountTre
 	}
 }
 
-// user can deposit on their own or via our app
-func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) ([]byte, error) {
+// only verify the zkp since the signature is signed by user
+func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error {
 	depositInputs := &circuits.DepositInputs{
 		Root:          service.accountTree.GetRoot(),
 		DepositAmount: deposit.DepositAmount,
@@ -56,7 +54,7 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) ([]by
 	if err == daos.ErrAccountNotFound {
 		userIndex, err := service.accountService.GetCurrentAccountIndex()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		account = &models.Account{
@@ -67,23 +65,23 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) ([]by
 		}
 
 		if err := service.accountService.CreateAccount(account); err != nil {
-			return nil, err
+			return err
 		}
 
 		leaf, err := tree.GenerateAccountLeaf(account)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		mtProof, err = service.accountTree.AddAndGetCircomProof(userIndex, leaf)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		// mock update to get the circuit processor proof
 		mtProof, err = service.accountTree.UpdateAccountTree(account)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -92,51 +90,25 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) ([]by
 
 	circuitInput, err := depositInputs.InputsMarshal()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
-		return nil, err
+		return err
 	}
 
-	var depositOutputs circuits.DepositOutputs
-	if err = depositOutputs.OutputUnmarshal(proof); err != nil {
-		return nil, err
-	}
-
-	data, err := service.abi.Pack("deposit", depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := service.signer.GenerateDynamicTx(service.ethClient, common.HexToAddress(rollupAddress), data)
-	if err != nil {
-		return nil, err
-	}
-
-	signedTx, err := service.signer.SignTx(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	rawTxBytes, err := signedTx.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Deposit finished: %v", signedTx)
-
-	return rawTxBytes, nil
+	return nil
 }
 
-func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) ([]byte, error) {
+// only verify the zkp since the signature is signed by user
+func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) error {
 	if err := withdraw.VerifySignature(); err != nil {
-		return nil, err
+		return err
 	}
 
 	withdrawInputs := &circuits.WithdrawInputs{
@@ -148,13 +120,13 @@ func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) ([
 
 	account, err := service.accountService.GetAccountByIndex(withdraw.AccountIndex)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// mock update to get the circuit processor proof
 	mtProof, err := service.accountTree.UpdateAccountTree(account)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	withdrawInputs.Account = account
@@ -162,46 +134,24 @@ func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) ([
 
 	circuitInput, err := withdrawInputs.InputsMarshal()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/withdraw")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if err = circuits.VerifierGroth16(proof, circuitPath+"/withdraw"); err != nil {
-		return nil, err
+		return err
 	}
 
 	var withdrawOutputs circuits.WithdrawOutputs
 	if err = withdrawOutputs.OutputUnmarshal(proof); err != nil {
-		return nil, err
+		return err
 	}
 
-	data, err := service.abi.Pack("withdraw", withdraw.WithdrawAmount, withdrawOutputs.Proof.A, withdrawOutputs.Proof.B, withdrawOutputs.Proof.C, withdrawOutputs.PublicSignals)
-	if err != nil {
-		return nil, err
-	}
-
-	tx, err := service.signer.GenerateDynamicTx(service.ethClient, common.HexToAddress(rollupAddress), data)
-	if err != nil {
-		return nil, err
-	}
-
-	signedTx, err := service.signer.SignTx(tx)
-	if err != nil {
-		return nil, err
-	}
-
-	rawTxBytes, err := signedTx.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Printf("Withdraw finished: %v", tx)
-
-	return rawTxBytes, nil
+	return nil
 }
 
 func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) (int64, error) {

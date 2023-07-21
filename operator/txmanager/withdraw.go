@@ -13,6 +13,7 @@ type WithdrawInfo struct {
 	Nullifier      *big.Int
 	Signature      *babyjub.Signature
 	WithdrawAmount *big.Int
+	SignedTxHash   string
 }
 
 func (w *WithdrawInfo) VerifySignature() error {

@@ -1,4 +1,4 @@
-package dbcache
+package pubsubs
 
 type Subscriber interface {
 	Receive()

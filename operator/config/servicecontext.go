@@ -6,12 +6,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/controllers"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/db"
-	"github.com/chentihe/zk-rollup-lite/operator/dbcache"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/eventhandler"
+	"github.com/chentihe/zk-rollup-lite/operator/pubsubs"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -21,14 +22,14 @@ import (
 
 type ServiceContext struct {
 	PostgresDB            *gorm.DB
-	Redis                 *dbcache.RedisCache
+	Redis                 *cache.RedisCache
 	AccountTree           *tree.AccountTree
 	EthClient             *ethclient.Client
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
-	rollupSubscriber      dbcache.Subscriber
-	sendTxPubSub          dbcache.Subscriber
+	rollupSubscriber      pubsubs.Subscriber
+	sendTxPubSub          pubsubs.Subscriber
 	eventHandler          *eventhandler.EventHandler
 }
 
@@ -38,7 +39,7 @@ func NewServiceContext(context context.Context) *ServiceContext {
 		panic(fmt.Sprintf("cannot initialize db, %v\n", err))
 	}
 
-	redis, err := dbcache.NewRedisCache(context)
+	redis, err := cache.NewRedisCache(context)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize cache, %v\n", err))
 	}
@@ -78,8 +79,8 @@ func NewServiceContext(context context.Context) *ServiceContext {
 
 	transctionService := services.NewTransactionService(accountService, accountTree, redis, ethClient, signer, &contractAbi, context)
 
-	sendTxSubscriber := dbcache.NewSendTxPubSub(context, redis, ethClient, "sendTxChannel")
-	rollupSubscriber := dbcache.NewRollupSubscriber(redis, signer, ethClient, &contractAbi, "rollupChannel", context)
+	sendTxSubscriber := pubsubs.NewSendTxPubSub(context, redis, ethClient, "sendTxChannel")
+	rollupSubscriber := pubsubs.NewRollupSubscriber(redis, signer, ethClient, &contractAbi, "rollupChannel", context)
 
 	tracsactionController := controllers.NewTransactionController(transctionService, &sendTxSubscriber)
 

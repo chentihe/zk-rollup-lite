@@ -1,10 +1,11 @@
-package dbcache
+package pubsubs
 
 import (
 	"context"
 	"fmt"
 	"strconv"
 
+	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -12,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-type RollupSubscriber struct {
-	redisCache *RedisCache
+type RollupPubSub struct {
+	redisCache *cache.RedisCache
 	signer     *clients.Signer
 	ethclient  *ethclient.Client
 	abi        *abi.ABI
@@ -21,8 +22,8 @@ type RollupSubscriber struct {
 	context    context.Context
 }
 
-func NewRollupSubscriber(redisCache *RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context) Subscriber {
-	return &RollupSubscriber{
+func NewRollupSubscriber(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context) Subscriber {
+	return &RollupPubSub{
 		redisCache: redisCache,
 		signer:     signer,
 		ethclient:  ethclient,
@@ -32,27 +33,27 @@ func NewRollupSubscriber(redisCache *RedisCache, signer *clients.Signer, ethclie
 	}
 }
 
-func (sub *RollupSubscriber) Publish(msg interface{}) {
-	sub.redisCache.client.Publish(sub.context, sub.channel, msg)
+func (pubsub *RollupPubSub) Publish(msg interface{}) {
+	pubsub.redisCache.Client.Publish(pubsub.context, pubsub.channel, msg)
 }
 
-func (sub *RollupSubscriber) Receive() {
-	pubsub := sub.redisCache.client.Subscribe(context.Background(), sub.channel)
-	ch := pubsub.Channel()
+func (pubsub *RollupPubSub) Receive() {
+	sub := pubsub.redisCache.Client.Subscribe(context.Background(), pubsub.channel)
+	ch := sub.Channel()
 
 	go func() {
 		for msg := range ch {
 			switch msg.String() {
 			case rollUpCommand:
 				// get tx amounts from redis
-				lastInsertedTx, err := sub.redisCache.Get(sub.context, lastInsertedKey, new(int))
+				lastInsertedTx, err := pubsub.redisCache.Get(pubsub.context, lastInsertedKey, new(int))
 				if err != nil {
 					fmt.Printf("Get tx num err: %v", err)
 				}
 
 				var rollupInputs circuits.RollupInputs
 				for i := 0; i < lastInsertedTx.(int); i++ {
-					object, err := sub.redisCache.Get(sub.context, strconv.Itoa(i), new(circuits.RollupTx))
+					object, err := pubsub.redisCache.Get(pubsub.context, strconv.Itoa(i), new(circuits.RollupTx))
 					if err != nil {
 						fmt.Printf("Get rollup tx err: %v", err)
 					}
@@ -83,26 +84,26 @@ func (sub *RollupSubscriber) Receive() {
 					fmt.Printf("Circuit ouputs unmarshal err: %v", err)
 				}
 
-				data, err := sub.abi.Pack("rollup", rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
+				data, err := pubsub.abi.Pack("rollup", rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
 				if err != nil {
 					fmt.Printf("Cannot pack rollup call data: %v", err)
 				}
 
-				tx, err := sub.signer.GenerateDynamicTx(sub.ethclient, common.HexToAddress(rollupAddress), data)
+				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.ethclient, common.HexToAddress(rollupAddress), data)
 				if err != nil {
 					fmt.Printf("Send tx err: %v", err)
 				}
 
-				signTx, err := sub.signer.SignTx(tx)
+				signTx, err := pubsub.signer.SignTx(tx)
 				if err != nil {
 					fmt.Printf("Sign tx err: %v", err)
 				}
 
-				if err := sub.ethclient.SendTransaction(sub.context, signTx); err != nil {
+				if err := pubsub.ethclient.SendTransaction(pubsub.context, signTx); err != nil {
 					fmt.Printf("Send tx err: %v", err)
 				}
 
-				if err := sub.redisCache.Set(sub.context, lastInsertedKey, -1); err != nil {
+				if err := pubsub.redisCache.Set(pubsub.context, lastInsertedKey, -1); err != nil {
 					fmt.Printf("Update redis err: %v", err)
 				}
 
