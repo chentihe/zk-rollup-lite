@@ -2,7 +2,7 @@ node_modules/
 package-lock.json
 
 # Compiler files
-cache/
+contracts/cache/
 out/
 build/
 
@@ -19,3 +19,5 @@ docs/
 .env
 
 trusted_setup/
+
+.vscode/

@@ -26,7 +26,7 @@ type RollupTx struct {
 }
 
 type AccountInfo struct {
-	Account      *models.Account
+	Account      *models.AccountDto
 	PathElements []*merkletree.Hash
 }
 
@@ -36,13 +36,13 @@ type rollupCircuitInputs struct {
 	TxSendersPublicKey                   [][2]string
 	TxSendersBalance                     []string
 	TxSendersNonce                       []string
-	TxSendersPathElements                [][]string
+	TxSendersPathElements                [][6]string
 	TxRecipientsPublicKey                [][2]string
 	TxRecipientsBalance                  []string
 	TxRecipientsNonce                    []string
-	TxRecipientsPathElements             [][]string
+	TxRecipientsPathElements             [][6]string
 	IntermediateBalanceTreeRoots         []string
-	IntermediateBalanceTreesPathElements [][]string
+	IntermediateBalanceTreesPathElements [][6]string
 }
 
 func (r *RollupInputs) InputsMarshal() ([]byte, error) {

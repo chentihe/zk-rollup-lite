@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -9,15 +10,63 @@ import (
 	"syscall"
 	"time"
 
+	zkCli "github.com/chentihe/zk-rollup-lite/operator/cli"
+	"github.com/chentihe/zk-rollup-lite/operator/cmd/flags"
 	"github.com/chentihe/zk-rollup-lite/operator/config"
+	"github.com/chentihe/zk-rollup-lite/operator/config/servicecontext"
 	"github.com/chentihe/zk-rollup-lite/operator/routes"
 	"github.com/gin-gonic/gin"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
 	context := context.Background()
 
-	svc := config.NewServiceContext(context)
+	config, err := config.LoadConfig("../config")
+	if err != nil {
+		panic(err)
+	}
+
+	svc := servicecontext.NewServiceContext(context, config)
+
+	app := &cli.App{
+		Name:        "Zk Rollup Lite",
+		Description: "Simple zk rollup implementation",
+		Commands: []*cli.Command{
+			{
+				Name:  "deposit",
+				Usage: "Deposit ethers to the rollup contract",
+				Flags: []cli.Flag{
+					flags.DepositAmountFlag,
+					flags.AccountIndexFlag,
+				},
+				Action: func(ctx *cli.Context) error {
+					return zkCli.Deposit(ctx, context, &config.Sender, svc)
+				},
+			},
+			// {
+			// 	Name:  "withdraw",
+			// 	Usage: "Withdraw ethers from the rollup contract",
+			// 	Action: func(ctx *cli.Context) error {
+
+			// 	},
+			// },
+			{
+				Name:  "startapp",
+				Usage: "Start the layer2 app",
+				Action: func(ctx *cli.Context) error {
+					return StartServer(context, config, svc)
+				},
+			},
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Println(err)
+	}
+}
+
+func StartServer(context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
 	svc.StartDaemon()
 
 	router := gin.Default()
@@ -29,6 +78,8 @@ func main() {
 	}
 
 	GracefulShutdown(server)
+
+	return nil
 }
 
 func GracefulShutdown(server *http.Server) {

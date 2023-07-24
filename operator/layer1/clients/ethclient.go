@@ -1,14 +1,12 @@
 package clients
 
 import (
-	"os"
-
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func InitEthClient() (*ethclient.Client, error) {
-	// TODO: change to yaml config
-	client, err := ethclient.Dial(os.Getenv("WEBSOCKER_URL"))
+func InitEthClient(config *config.EthClient) (*ethclient.Client, error) {
+	client, err := ethclient.Dial(config.WSUrl)
 
 	if err != nil {
 		return nil, err

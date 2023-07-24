@@ -3,6 +3,9 @@ src = "contracts/src"
 out = "contracts/out"
 test = "contracts/test"
 libs = ["contracts/lib"]
+cache_path = "contracts/cache"
+broadcast = 'contracts/broadcast'
+
 remappings = [
     "ds-test/=contracts/lib/forge-std/lib/ds-test/src/",
     "forge-std/=contracts/lib/forge-std/src/",

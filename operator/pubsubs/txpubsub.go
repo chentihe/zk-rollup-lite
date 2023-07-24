@@ -2,6 +2,7 @@ package pubsubs
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
@@ -21,6 +22,7 @@ func NewTxPubSub(context context.Context, redisCache *cache.RedisCache, ethClien
 		redisCache: redisCache,
 		ethClient:  ethClient,
 		channel:    channel,
+		context:    context,
 	}
 }
 
@@ -32,12 +34,10 @@ func (pubsub *TxPubSub) Receive() {
 	sub := pubsub.redisCache.Client.Subscribe(pubsub.context, pubsub.channel)
 	ch := sub.Channel()
 
-	var forever chan struct{}
-
 	go func() {
 		for msg := range ch {
 
-			txHash := msg.String()
+			txHash := msg.Payload
 			log.Printf("Received a new signed tx: %s", txHash)
 
 			tx, err := layer1.DecodeTxHash(txHash)
@@ -49,9 +49,10 @@ func (pubsub *TxPubSub) Receive() {
 			if err != nil {
 				log.Printf("Send tx error: %s", err)
 			}
+
+			fmt.Printf("send tx success: %#v", tx)
 		}
 	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	<-forever
 }

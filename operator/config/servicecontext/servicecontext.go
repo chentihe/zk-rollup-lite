@@ -1,12 +1,12 @@
-package config
+package servicecontext
 
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/controllers"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/db"
@@ -25,26 +25,27 @@ type ServiceContext struct {
 	Redis                 *cache.RedisCache
 	AccountTree           *tree.AccountTree
 	EthClient             *ethclient.Client
+	Abi                   *abi.ABI
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
-	rollupSubscriber      pubsubs.Subscriber
-	sendTxPubSub          pubsubs.Subscriber
+	rollupPubSub          pubsubs.Subscriber
+	txPubSub              pubsubs.Subscriber
 	eventHandler          *eventhandler.EventHandler
 }
 
-func NewServiceContext(context context.Context) *ServiceContext {
-	db, err := db.InitializeDB("")
+func NewServiceContext(context context.Context, config *config.Config) *ServiceContext {
+	db, err := db.InitializeDB(&config.Postgres)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize db, %v\n", err))
 	}
 
-	redis, err := cache.NewRedisCache(context)
+	redis, err := cache.NewRedisCache(context, &config.Redis)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize cache, %v\n", err))
 	}
 
-	ethClient, err := clients.InitEthClient()
+	ethClient, err := clients.InitEthClient(&config.EthClient)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize eth client, %v\n", err))
 	}
@@ -54,17 +55,20 @@ func NewServiceContext(context context.Context) *ServiceContext {
 		panic(fmt.Sprintf("cannot get chain id, %v\n", err))
 	}
 
-	signer, err := clients.NewSigner(chainId)
+	signer, err := clients.NewSigner(chainId, config.EthClient.PrivateKey)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create signer, %v\n", err))
 	}
 
-	contractAbi, err := abi.JSON(strings.NewReader(os.Getenv("ROLLUP_ABI")))
+	contractAbi, err := abi.JSON(strings.NewReader(config.SmartContract.Abi))
 	if err != nil {
 		panic(fmt.Sprintf("cannot parse abi, %v\n", err))
 	}
 
 	accountDao := daos.NewAccountDao(db)
+	if err = accountDao.CreateAccountTable(); err != nil {
+		panic(fmt.Sprintf("cannot create account table, %v\n", err))
+	}
 	accountService := services.NewAccountService(&accountDao)
 	accountController := controllers.NewAccountController(accountService)
 	accountTree, err := tree.InitAccountTree()
@@ -72,34 +76,35 @@ func NewServiceContext(context context.Context) *ServiceContext {
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}
 
-	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, ethClient, &contractAbi)
+	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, ethClient, &contractAbi, config.SmartContract.Address)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}
 
 	transctionService := services.NewTransactionService(accountService, accountTree, redis, ethClient, signer, &contractAbi, context)
 
-	sendTxSubscriber := pubsubs.NewSendTxPubSub(context, redis, ethClient, "sendTxChannel")
-	rollupSubscriber := pubsubs.NewRollupSubscriber(redis, signer, ethClient, &contractAbi, "rollupChannel", context)
+	txPubSub := pubsubs.NewTxPubSub(context, redis, ethClient, "sendTxChannel")
+	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, "rollupChannel", context)
 
-	tracsactionController := controllers.NewTransactionController(transctionService, &sendTxSubscriber)
+	tracsactionController := controllers.NewTransactionController(transctionService, &txPubSub)
 
 	return &ServiceContext{
 		PostgresDB:            db,
 		Redis:                 redis,
 		AccountTree:           accountTree,
 		EthClient:             ethClient,
+		Abi:                   &contractAbi,
 		AccountService:        accountService,
 		AccountController:     accountController,
 		TransactionController: tracsactionController,
-		rollupSubscriber:      rollupSubscriber,
-		sendTxPubSub:          sendTxSubscriber,
+		rollupPubSub:          rollupPubSub,
+		txPubSub:              txPubSub,
 		eventHandler:          eventHandler,
 	}
 }
 
 func (svc *ServiceContext) StartDaemon() {
 	svc.eventHandler.Listening()
-	svc.rollupSubscriber.Receive()
-	svc.sendTxPubSub.Receive()
+	svc.rollupPubSub.Receive()
+	svc.txPubSub.Receive()
 }

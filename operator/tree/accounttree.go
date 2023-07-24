@@ -9,7 +9,7 @@ import (
 	"github.com/iden3/go-merkletree-sql/v2/db/memory"
 )
 
-const mtDepth = 6
+const mtDepth = 5
 
 type AccountTree struct {
 	MT *merkletree.MerkleTree
@@ -41,15 +41,15 @@ func InitAccountTree() (*AccountTree, error) {
 	return &AccountTree{mt}, nil
 }
 
-func (accountTree *AccountTree) UpdateAccountTree(account *models.Account) (*merkletree.CircomProcessorProof, error) {
+func (accountTree *AccountTree) UpdateAccountTree(accountDto *models.AccountDto) (*merkletree.CircomProcessorProof, error) {
 	context := context.Background()
 
-	leaf, err := GenerateAccountLeaf(account)
+	leaf, err := GenerateAccountLeaf(accountDto)
 	if err != nil {
 		return nil, err
 	}
 
-	proof, err := accountTree.MT.Update(context, big.NewInt(account.AccountIndex), leaf)
+	proof, err := accountTree.MT.Update(context, big.NewInt(accountDto.AccountIndex), leaf)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (accountTree *AccountTree) UpdateAccountTree(account *models.Account) (*mer
 	return proof, nil
 }
 
-func (accountTree *AccountTree) GetPathByAccount(account *models.Account) ([]*merkletree.Hash, error) {
+func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]*merkletree.Hash, error) {
 	context := context.Background()
 
 	index := account.AccountIndex

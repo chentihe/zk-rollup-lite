@@ -42,7 +42,7 @@ func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 
 func (c *TransactionController) Deposit(ctx *gin.Context) {
 	var deposit *txmanager.DepositInfo
-	if err := ctx.ShouldBindQuery(&deposit); err != nil {
+	if err := ctx.ShouldBindJSON(&deposit); err != nil {
 		panic(err)
 	}
 
@@ -58,7 +58,7 @@ func (c *TransactionController) Deposit(ctx *gin.Context) {
 
 func (c *TransactionController) Withdraw(ctx *gin.Context) {
 	var withdraw *txmanager.WithdrawInfo
-	if err := ctx.ShouldBindQuery(&withdraw); err != nil {
+	if err := ctx.ShouldBindJSON(&withdraw); err != nil {
 		panic(err)
 	}
 

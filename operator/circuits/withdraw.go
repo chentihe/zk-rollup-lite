@@ -14,7 +14,7 @@ import (
 )
 
 type WithdrawInputs struct {
-	Account        *models.Account
+	Account        *models.AccountDto
 	Nullifier      *big.Int
 	Signature      *babyjub.Signature
 	Root           *merkletree.Hash
@@ -29,7 +29,7 @@ type withdrawCircuitInputs struct {
 	BalanceTreeRoot string
 	Balance         string
 	Nonce           string
-	PathElements    []string
+	PathElements    [6]string
 	OldKey          string
 	OldValue        string
 	IsOld0          string

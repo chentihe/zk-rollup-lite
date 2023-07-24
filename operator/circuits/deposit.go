@@ -13,23 +13,23 @@ import (
 )
 
 type DepositInputs struct {
-	Account       *models.Account
+	Account       *models.AccountDto
 	Root          *merkletree.Hash
 	DepositAmount *big.Int
 	MTProof       *merkletree.CircomProcessorProof
 }
 
 type depositCircuitInputs struct {
-	BalanceTreeRoot string
-	PublicKey       [2]string
-	Balance         string
-	Nonce           string
-	PathElements    []string
-	OldKey          string
-	OldValue        string
-	IsOld0          string
-	NewKey          string
-	Func            [2]string
+	BalanceTreeRoot string    `json:"balanceTreeRoot"`
+	PublicKey       [2]string `json:"publicKey"`
+	Balance         string    `json:"balance"`
+	Nonce           string    `json:"nonce"`
+	PathElements    [6]string `json:"pathElements"`
+	OldKey          string    `json:"oldKey"`
+	OldValue        string    `json:"oldValue"`
+	IsOld0          string    `json:"isOld0"`
+	NewKey          string    `json:"newKey"`
+	Func            [2]string `json:"func"`
 }
 
 const (

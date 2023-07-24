@@ -18,7 +18,9 @@ func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 		return err
 	}
 
-	p.A = ([2]*big.Int)(a)
+	for i := 0; i < 2; i++ {
+		p.A[i] = a[i]
+	}
 
 	for i, arr := range proof.B {
 		b, err := stringsToArrayBigInt(arr)
@@ -26,7 +28,9 @@ func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 			return err
 		}
 
-		p.B[i] = ([2]*big.Int)(b)
+		if i < 2 {
+			p.B[i] = ([2]*big.Int)(b)
+		}
 	}
 
 	c, err := stringsToArrayBigInt(proof.C)
@@ -34,7 +38,9 @@ func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 		return err
 	}
 
-	p.C = ([2]*big.Int)(c)
+	for i := 0; i < 2; i++ {
+		p.C[i] = c[i]
+	}
 
 	return nil
 }

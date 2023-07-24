@@ -48,7 +48,7 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 
 	var mtProof *merkletree.CircomProcessorProof
 
-	account, err := service.accountService.GetAccountByIndex(deposit.AccountIndex)
+	accountDto, err := service.accountService.GetAccountByIndex(deposit.AccountIndex)
 	// add account into db & merkle tree if it's new account
 	// event hanlder will update the rest info once the tx is on-chain
 	if err == daos.ErrAccountNotFound {
@@ -57,18 +57,18 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 			return err
 		}
 
-		account = &models.Account{
+		accountDto = &models.AccountDto{
 			AccountIndex: userIndex,
 			PublicKey:    deposit.PublicKey,
 			Balance:      big.NewInt(0),
 			Nonce:        0,
 		}
 
-		if err := service.accountService.CreateAccount(account); err != nil {
+		if err := service.accountService.CreateAccount(accountDto); err != nil {
 			return err
 		}
 
-		leaf, err := tree.GenerateAccountLeaf(account)
+		leaf, err := tree.GenerateAccountLeaf(accountDto)
 		if err != nil {
 			return err
 		}
@@ -79,13 +79,13 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 		}
 	} else {
 		// mock update to get the circuit processor proof
-		mtProof, err = service.accountTree.UpdateAccountTree(account)
+		mtProof, err = service.accountTree.UpdateAccountTree(accountDto)
 		if err != nil {
 			return err
 		}
 	}
 
-	depositInputs.Account = account
+	depositInputs.Account = accountDto
 	depositInputs.MTProof = mtProof
 
 	circuitInput, err := depositInputs.InputsMarshal()

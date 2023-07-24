@@ -10,8 +10,8 @@ import (
 	"github.com/iden3/go-merkletree-sql/v2"
 )
 
-func GenerateAccountLeaf(account *models.Account) (*big.Int, error) {
-	publicKey, err := DecodePublicKeyFromString(account.PublicKey)
+func GenerateAccountLeaf(accountDto *models.AccountDto) (*big.Int, error) {
+	publicKey, err := DecodePublicKeyFromString(accountDto.PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -19,8 +19,8 @@ func GenerateAccountLeaf(account *models.Account) (*big.Int, error) {
 	hashedLeaf, err := poseidon.Hash([]*big.Int{
 		publicKey.X,
 		publicKey.Y,
-		account.Balance,
-		big.NewInt(account.Nonce),
+		accountDto.Balance,
+		big.NewInt(accountDto.Nonce),
 	})
 	if err != nil {
 		return nil, err
@@ -55,10 +55,10 @@ func StringifyPublicKey(comp string) (*[2]string, error) {
 	return &[2]string{x, y}, nil
 }
 
-func StringifyPath(siblings []*merkletree.Hash) []string {
-	pathElements := []string{}
-	for _, sibling := range siblings {
-		pathElements = append(pathElements, sibling.String())
+func StringifyPath(siblings []*merkletree.Hash) [6]string {
+	pathElements := [6]string{}
+	for i, sibling := range siblings {
+		pathElements[i] = sibling.String()
 	}
 	return pathElements
 }

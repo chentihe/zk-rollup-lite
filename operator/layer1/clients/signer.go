@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
-	"os"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,8 +21,8 @@ type Signer struct {
 	Context    context.Context
 }
 
-func NewSigner(chainId *big.Int) (*Signer, error) {
-	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
+func NewSigner(chainId *big.Int, priv string) (*Signer, error) {
+	privateKey, err := crypto.HexToECDSA(priv)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +39,7 @@ func NewSigner(chainId *big.Int) (*Signer, error) {
 		privateKey: privateKey,
 		PublicKey:  publicKeyECDSA,
 		Address:    signerAddress,
-		Signer:     types.NewEIP155Signer(chainId),
+		Signer:     types.NewLondonSigner(chainId),
 		Context:    context.Background(),
 	}, nil
 }

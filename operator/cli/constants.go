@@ -1,4 +1,4 @@
-package services
+package cli
 
 const (
 	circuitPath     = "../build"

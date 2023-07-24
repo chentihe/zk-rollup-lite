@@ -26,7 +26,7 @@ template Deposit(depth) {
 
     // 1 Make sure the balance is valid
     var TRUE = 1;
-    signal isBalanceValid <== GreaterThan(252)([balance, 0]);
+    signal isBalanceValid <== GreaterEqThan(252)([balance, 0]);
     TRUE === isBalanceValid;
 
     // 2. Process the SMT

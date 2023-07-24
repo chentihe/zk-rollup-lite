@@ -22,7 +22,7 @@ type RollupPubSub struct {
 	context    context.Context
 }
 
-func NewRollupSubscriber(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context) Subscriber {
+func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context) Subscriber {
 	return &RollupPubSub{
 		redisCache: redisCache,
 		signer:     signer,
@@ -38,7 +38,7 @@ func (pubsub *RollupPubSub) Publish(msg interface{}) {
 }
 
 func (pubsub *RollupPubSub) Receive() {
-	sub := pubsub.redisCache.Client.Subscribe(context.Background(), pubsub.channel)
+	sub := pubsub.redisCache.Client.Subscribe(pubsub.context, pubsub.channel)
 	ch := sub.Channel()
 
 	go func() {
@@ -99,11 +99,11 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Sign tx err: %v", err)
 				}
 
-				if err := pubsub.ethclient.SendTransaction(pubsub.context, signTx); err != nil {
+				if err = pubsub.ethclient.SendTransaction(pubsub.context, signTx); err != nil {
 					fmt.Printf("Send tx err: %v", err)
 				}
 
-				if err := pubsub.redisCache.Set(pubsub.context, lastInsertedKey, -1); err != nil {
+				if err = pubsub.redisCache.Set(pubsub.context, lastInsertedKey, -1); err != nil {
 					fmt.Printf("Update redis err: %v", err)
 				}
 

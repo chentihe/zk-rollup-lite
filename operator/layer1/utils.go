@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
 
 func DecodeTxHash(txHash string) (*types.Transaction, error) {
@@ -14,7 +13,9 @@ func DecodeTxHash(txHash string) (*types.Transaction, error) {
 	}
 
 	tx := new(types.Transaction)
-	rlp.DecodeBytes(rawTxBytes, &tx)
+	if err = tx.UnmarshalBinary(rawTxBytes); err != nil {
+		return nil, err
+	}
 
 	return tx, nil
 }

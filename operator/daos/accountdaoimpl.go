@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const AccountTableName = `account`
+const AccountTableName = `accounts`
 
 type AccountDaoImpl struct {
 	table string
@@ -31,9 +31,7 @@ func (dao *AccountDaoImpl) GetAccountByIndex(index int64) (account *models.Accou
 	dbTx := dao.DB.
 		Where("account_index = ?", index).
 		First(&account)
-	if dbTx.Error != nil {
-		return nil, ErrSqlOperation
-	} else if dbTx.RowsAffected == 0 {
+	if dbTx.RowsAffected == 0 {
 		return nil, ErrAccountNotFound
 	}
 

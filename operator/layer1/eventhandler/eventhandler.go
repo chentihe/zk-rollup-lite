@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
 
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
@@ -37,11 +36,11 @@ type EventHandler struct {
 	accountTree    *tree.AccountTree
 }
 
-func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI) (*EventHandler, error) {
-	contractAddress := common.HexToAddress(os.Getenv("CONTRACT_ADDRESS"))
+func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI, contractAddress string) (*EventHandler, error) {
+	rollupAddress := common.HexToAddress(contractAddress)
 
 	query := ethereum.FilterQuery{
-		Addresses: []common.Address{contractAddress},
+		Addresses: []common.Address{rollupAddress},
 	}
 
 	logs := make(chan types.Log)
@@ -62,6 +61,7 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 	}, nil
 }
 
+// TODO: not catching the deposit event
 func (e *EventHandler) Listening() {
 	fmt.Println("Listening to events...")
 	go func() {
@@ -142,11 +142,11 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 		return err
 	}
 
-	account, err := e.accountService.GetAccountByIndex(user.Index)
+	accountDto, err := e.accountService.GetAccountByIndex(user.Index)
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
-		account = &models.Account{
+		accountDto = &models.AccountDto{
 			AccountIndex: user.Index,
 			PublicKey:    publicKey.String(),
 			Balance:      user.Balance,
@@ -154,11 +154,11 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 			L1Address:    sender.Hex(),
 		}
 
-		if err := e.accountService.CreateAccount(account); err != nil {
+		if err := e.accountService.CreateAccount(accountDto); err != nil {
 			return err
 		}
 
-		accountLeaf, err := tree.GenerateAccountLeaf(account)
+		accountLeaf, err := tree.GenerateAccountLeaf(accountDto)
 		if err != nil {
 			return err
 		}
@@ -169,15 +169,15 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 	case daos.ErrSqlOperation:
 		return err
 	default:
-		account.Balance = user.Balance
-		account.Nonce = user.Nonce
-		account.L1Address = sender.Hex()
+		accountDto.Balance = user.Balance
+		accountDto.Nonce = user.Nonce
+		accountDto.L1Address = sender.Hex()
 
-		if err := e.accountService.UpdateAccount(account); err != nil {
+		if err := e.accountService.UpdateAccount(accountDto); err != nil {
 			return err
 		}
 
-		if _, err := e.accountTree.UpdateAccountTree(account); err != nil {
+		if _, err := e.accountTree.UpdateAccountTree(accountDto); err != nil {
 			return err
 		}
 	}
