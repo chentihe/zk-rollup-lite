@@ -26,11 +26,11 @@ type User struct {
 }
 
 type EventHandler struct {
-	context        context.Context
-	ethClient      *ethclient.Client
-	query          ethereum.FilterQuery
-	logs           chan types.Log
-	sub            ethereum.Subscription
+	context   context.Context
+	ethClient *ethclient.Client
+	query     ethereum.FilterQuery
+	// logs           chan types.Log
+	// sub            ethereum.Subscription
 	abi            *abi.ABI
 	accountService *services.AccountService
 	accountTree    *tree.AccountTree
@@ -43,19 +43,11 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 		Addresses: []common.Address{rollupAddress},
 	}
 
-	logs := make(chan types.Log)
-
-	sub, err := ethClient.SubscribeFilterLogs(context, query, logs)
-	if err != nil {
-		return nil, err
-	}
-
 	return &EventHandler{
 		context:        context,
 		query:          query,
-		logs:           logs,
-		sub:            sub,
 		abi:            abi,
+		ethClient:      ethClient,
 		accountService: accountService,
 		accountTree:    accountTree,
 	}, nil
@@ -64,12 +56,20 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 // TODO: not catching the deposit event
 func (e *EventHandler) Listening() {
 	fmt.Println("Listening to events...")
+
+	logs := make(chan types.Log)
+
+	sub, err := e.ethClient.SubscribeFilterLogs(e.context, e.query, logs)
+	if err != nil {
+		panic(err)
+	}
+
 	go func() {
 		for {
 			select {
-			case err := <-e.sub.Err():
+			case err := <-sub.Err():
 				fmt.Printf("Subscription err: %v", err)
-			case vLog := <-e.logs:
+			case vLog := <-logs:
 				switch vLog.Topics[0] {
 				case depositHash:
 					fmt.Println("Deposit Event")

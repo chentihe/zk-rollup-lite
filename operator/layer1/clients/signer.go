@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -45,11 +44,6 @@ func NewSigner(chainId *big.Int, priv string) (*Signer, error) {
 }
 
 func (signer *Signer) GetAuth(ethClient *ethclient.Client) (*bind.TransactOpts, error) {
-	nonce, err := ethClient.PendingNonceAt(signer.Context, signer.Address)
-	if err != nil {
-		return nil, err
-	}
-
 	gasPrice, err := ethClient.SuggestGasPrice(signer.Context)
 	if err != nil {
 		return nil, err
@@ -65,15 +59,14 @@ func (signer *Signer) GetAuth(ethClient *ethclient.Client) (*bind.TransactOpts, 
 		return nil, err
 	}
 
-	auth.Nonce = big.NewInt(int64(nonce))
 	auth.Value = big.NewInt(0)
-	auth.GasLimit = uint64(300000)
+	auth.GasLimit = uint64(800000)
 	auth.GasPrice = gasPrice
 
 	return auth, nil
 }
 
-func (signer *Signer) GenerateDynamicTx(ethClient *ethclient.Client, to common.Address, data []byte) (*types.Transaction, error) {
+func (signer *Signer) GenerateDynamicTx(ethClient *ethclient.Client, to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
 	chainId, err := ethClient.ChainID(signer.Context)
 	if err != nil {
 		return nil, err
@@ -88,26 +81,25 @@ func (signer *Signer) GenerateDynamicTx(ethClient *ethclient.Client, to common.A
 	if err != nil {
 		return nil, err
 	}
-
 	feeCap, err := ethClient.SuggestGasPrice(signer.Context)
 	if err != nil {
 		return nil, err
 	}
 
-	callMsg := ethereum.CallMsg{
-		From:      signer.Address,
-		To:        &to,
-		GasPrice:  nil,
-		GasTipCap: tipCap,
-		GasFeeCap: feeCap,
-		Value:     big.NewInt(0),
-		Data:      data,
-	}
+	// callMsg := ethereum.CallMsg{
+	// 	From:      signer.Address,
+	// 	To:        to,
+	// 	Gas:       math.MaxInt64,
+	// 	GasTipCap: tipCap,
+	// 	GasFeeCap: feeCap,
+	// 	Value:     value,
+	// 	Data:      data,
+	// }
 
-	gasLimit, err := ethClient.EstimateGas(signer.Context, callMsg)
-	if err != nil {
-		return nil, err
-	}
+	// gasLimit, err := ethClient.EstimateGas(signer.Context, callMsg)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
@@ -115,9 +107,9 @@ func (signer *Signer) GenerateDynamicTx(ethClient *ethclient.Client, to common.A
 			Nonce:     nonce,
 			GasTipCap: tipCap,
 			GasFeeCap: feeCap,
-			Gas:       gasLimit,
-			To:        &signer.Address,
-			Value:     big.NewInt(0),
+			Gas:       uint64(800000),
+			To:        to,
+			Value:     value,
 			Data:      data,
 		})
 

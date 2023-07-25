@@ -8,9 +8,9 @@ build/
 
 # Ignores development broadcast logs
 !/broadcast
-/broadcast/*/31337/
-/broadcast/*/1214/
-/broadcast/**/dry-run/
+contracts/broadcast/*/31337/
+contracts/broadcast/*/1214/
+contracts/broadcast/**/dry-run/
 
 # Docs
 docs/

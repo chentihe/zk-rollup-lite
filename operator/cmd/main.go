@@ -41,7 +41,7 @@ func main() {
 					flags.AccountIndexFlag,
 				},
 				Action: func(ctx *cli.Context) error {
-					return zkCli.Deposit(ctx, context, &config.Sender, svc)
+					return zkCli.Deposit(ctx, context, config, svc)
 				},
 			},
 			// {

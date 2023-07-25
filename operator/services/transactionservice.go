@@ -13,7 +13,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-merkletree-sql/v2"
 )
 
@@ -21,18 +20,16 @@ type TransactionService struct {
 	accountService *AccountService
 	accountTree    *tree.AccountTree
 	redisCache     *cache.RedisCache
-	ethClient      *ethclient.Client
 	signer         *clients.Signer
 	abi            *abi.ABI
 	context        context.Context
 }
 
-func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, ethClient *ethclient.Client, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
+func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
 		redisCache:     cache,
-		ethClient:      ethClient,
 		signer:         signer,
 		abi:            abi,
 		context:        context,

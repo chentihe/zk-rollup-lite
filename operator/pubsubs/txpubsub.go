@@ -48,9 +48,9 @@ func (pubsub *TxPubSub) Receive() {
 			err = pubsub.ethClient.SendTransaction(pubsub.context, tx)
 			if err != nil {
 				log.Printf("Send tx error: %s", err)
+			} else {
+				fmt.Printf("send tx success: %#v", tx.Hash().String())
 			}
-
-			fmt.Printf("send tx success: %#v", tx)
 		}
 	}()
 

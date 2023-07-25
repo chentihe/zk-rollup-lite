@@ -3,6 +3,7 @@ package pubsubs
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
@@ -14,22 +15,25 @@ import (
 )
 
 type RollupPubSub struct {
-	redisCache *cache.RedisCache
-	signer     *clients.Signer
-	ethclient  *ethclient.Client
-	abi        *abi.ABI
-	channel    string
-	context    context.Context
+	redisCache      *cache.RedisCache
+	signer          *clients.Signer
+	ethclient       *ethclient.Client
+	contractAddress *common.Address
+	abi             *abi.ABI
+	channel         string
+	context         context.Context
 }
 
-func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context) Subscriber {
+func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context, contractAddress string) Subscriber {
+	rollupContract := common.HexToAddress(contractAddress)
 	return &RollupPubSub{
-		redisCache: redisCache,
-		signer:     signer,
-		ethclient:  ethclient,
-		abi:        abi,
-		channel:    channel,
-		context:    context,
+		redisCache:      redisCache,
+		signer:          signer,
+		ethclient:       ethclient,
+		contractAddress: &rollupContract,
+		abi:             abi,
+		channel:         channel,
+		context:         context,
 	}
 }
 
@@ -89,7 +93,7 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Cannot pack rollup call data: %v", err)
 				}
 
-				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.ethclient, common.HexToAddress(rollupAddress), data)
+				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.ethclient, pubsub.contractAddress, data, big.NewInt(0))
 				if err != nil {
 					fmt.Printf("Send tx err: %v", err)
 				}

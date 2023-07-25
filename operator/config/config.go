@@ -49,6 +49,7 @@ type SmartContract struct {
 }
 
 type EthClient struct {
+	RPCUrl     string `mapstructure:"rpcurl"`
 	WSUrl      string `mapstructure:"wsurl"`
 	PrivateKey string `mapstructure:"privatekey"`
 }

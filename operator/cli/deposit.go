@@ -24,8 +24,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func Deposit(ctx *cli.Context, context context.Context, config *config.Sender, svc *servicecontext.ServiceContext) error {
-	signer, err := clients.NewSigner(big.NewInt(1214), config.PrivateKey)
+func Deposit(ctx *cli.Context, context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
+	signer, err := clients.NewSigner(big.NewInt(1214), config.Sender.PrivateKey)
 	if err != nil {
 		return err
 	}
@@ -102,12 +102,29 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Sender, s
 		return err
 	}
 
+	// contract, err := contracts.NewRollup(common.HexToAddress(config.SmartContract.Address), svc.EthClient)
+	// if err != nil {
+	// 	fmt.Printf("Cannot init contract instance: %v", err)
+	// }
+
+	// auth, err := signer.GetAuth(svc.EthClient)
+	// if err != nil {
+	// 	fmt.Printf("Cannot get auth: %v", err)
+	// }
+	// auth.Value = depositAmount
+
+	// signTx, err := contract.Deposit(auth, depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
+	// if err != nil {
+	// 	fmt.Printf("Deposit err: %v", err)
+	// }
+
 	data, err := svc.Abi.Pack("deposit", depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
 	if err != nil {
 		fmt.Printf("Cannot pack rollup call data: %v", err)
 	}
 
-	tx, err := signer.GenerateDynamicTx(svc.EthClient, common.HexToAddress(rollupAddress), data)
+	rollupAddress := common.HexToAddress(config.SmartContract.Address)
+	tx, err := signer.GenerateDynamicTx(svc.EthClient, &rollupAddress, data, depositAmount)
 	if err != nil {
 		return err
 	}
@@ -128,13 +145,6 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Sender, s
 		DepositAmount: depositAmount,
 		SignedTxHash:  hex.EncodeToString(rawTxBytes),
 	}
-
-	// values := map[string]string{
-	// 	"accountIndex":  strconv.Itoa(int(accountIndex)),
-	// 	"publicKey":     l2PublicKey.String(),
-	// 	"depositAmount": depositAmount.String(),
-	// 	"signedTxHash":  signTx.Hash().String(),
-	// }
 
 	requestBody, err := json.Marshal(depositInfo)
 	if err != nil {

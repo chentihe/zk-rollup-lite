@@ -45,7 +45,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot initialize cache, %v\n", err))
 	}
 
-	ethClient, err := clients.InitEthClient(&config.EthClient)
+	ethClient, wsClient, err := clients.InitEthClient(&config.EthClient)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize eth client, %v\n", err))
 	}
@@ -76,15 +76,15 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}
 
-	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, ethClient, &contractAbi, config.SmartContract.Address)
+	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, wsClient, &contractAbi, config.SmartContract.Address)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}
 
-	transctionService := services.NewTransactionService(accountService, accountTree, redis, ethClient, signer, &contractAbi, context)
+	transctionService := services.NewTransactionService(accountService, accountTree, redis, signer, &contractAbi, context)
 
 	txPubSub := pubsubs.NewTxPubSub(context, redis, ethClient, "sendTxChannel")
-	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, "rollupChannel", context)
+	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, "rollupChannel", context, config.SmartContract.Address)
 
 	tracsactionController := controllers.NewTransactionController(transctionService, &txPubSub)
 

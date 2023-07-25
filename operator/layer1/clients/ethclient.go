@@ -5,12 +5,16 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func InitEthClient(config *config.EthClient) (*ethclient.Client, error) {
-	client, err := ethclient.Dial(config.WSUrl)
-
+func InitEthClient(config *config.EthClient) (*ethclient.Client, *ethclient.Client, error) {
+	rpcClient, err := ethclient.Dial(config.RPCUrl)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return client, nil
+	wsClient, err := ethclient.Dial(config.WSUrl)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rpcClient, wsClient, nil
 }
