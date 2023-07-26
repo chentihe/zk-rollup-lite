@@ -50,12 +50,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot initialize eth client, %v\n", err))
 	}
 
-	chainId, err := ethClient.ChainID(context)
-	if err != nil {
-		panic(fmt.Sprintf("cannot get chain id, %v\n", err))
-	}
-
-	signer, err := clients.NewSigner(chainId, config.EthClient.PrivateKey)
+	signer, err := clients.NewSigner(context, config.EthClient.PrivateKey, ethClient)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create signer, %v\n", err))
 	}

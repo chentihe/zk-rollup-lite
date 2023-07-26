@@ -18,11 +18,11 @@ import (
 )
 
 type User struct {
-	Index      int64    `json:"index"`
+	Index      *big.Int `json:"index"`
 	PublicKeyX *big.Int `json:"publicKeyX"`
 	PublicKeyY *big.Int `json:"publicKeyY"`
 	Balance    *big.Int `json:"balance"`
-	Nonce      int64    `json:"nonce"`
+	Nonce      *big.Int `json:"nonce"`
 }
 
 type EventHandler struct {
@@ -99,13 +99,13 @@ func (e *EventHandler) afterWithdraw(vLog *types.Log) error {
 
 	user := withdraw.User
 
-	account, err := e.accountService.GetAccountByIndex(user.Index)
+	account, err := e.accountService.GetAccountByIndex(user.Index.Int64())
 	if err != nil {
 		return err
 	}
 
 	account.Balance = user.Balance
-	account.Nonce = user.Nonce
+	account.Nonce = user.Nonce.Int64()
 
 	if err := e.accountService.UpdateAccount(account); err != nil {
 		return err
@@ -137,20 +137,20 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 		return err
 	}
 
-	sender, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
+	sender, err := types.Sender(types.NewLondonSigner(tx.ChainId()), tx)
 	if err != nil {
 		return err
 	}
 
-	accountDto, err := e.accountService.GetAccountByIndex(user.Index)
+	accountDto, err := e.accountService.GetAccountByIndex(user.Index.Int64())
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
 		accountDto = &models.AccountDto{
-			AccountIndex: user.Index,
+			AccountIndex: user.Index.Int64(),
 			PublicKey:    publicKey.String(),
 			Balance:      user.Balance,
-			Nonce:        user.Nonce,
+			Nonce:        user.Nonce.Int64(),
 			L1Address:    sender.Hex(),
 		}
 
@@ -163,14 +163,14 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 			return err
 		}
 
-		if err := e.accountTree.Add(user.Index, accountLeaf); err != nil {
+		if err := e.accountTree.Add(user.Index.Int64(), accountLeaf); err != nil {
 			return err
 		}
 	case daos.ErrSqlOperation:
 		return err
 	default:
 		accountDto.Balance = user.Balance
-		accountDto.Nonce = user.Nonce
+		accountDto.Nonce = user.Nonce.Int64()
 		accountDto.L1Address = sender.Hex()
 
 		if err := e.accountService.UpdateAccount(accountDto); err != nil {

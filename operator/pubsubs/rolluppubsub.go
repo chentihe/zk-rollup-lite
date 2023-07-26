@@ -93,7 +93,7 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Cannot pack rollup call data: %v", err)
 				}
 
-				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.ethclient, pubsub.contractAddress, data, big.NewInt(0))
+				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.contractAddress, data, big.NewInt(0))
 				if err != nil {
 					fmt.Printf("Send tx err: %v", err)
 				}

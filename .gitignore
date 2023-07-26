@@ -16,7 +16,7 @@ contracts/broadcast/**/dry-run/
 docs/
 
 # Dotenv file
-.env
+.env*
 
 trusted_setup/
 

@@ -30,6 +30,7 @@ func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 
 		if i < 2 {
 			p.B[i] = ([2]*big.Int)(b)
+			p.B[i][0], p.B[i][1] = p.B[i][1], p.B[i][0]
 		}
 	}
 

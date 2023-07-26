@@ -3,8 +3,11 @@ package clients
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,11 +19,12 @@ type Signer struct {
 	privateKey *ecdsa.PrivateKey
 	PublicKey  *ecdsa.PublicKey
 	Address    common.Address
+	ethClient  *ethclient.Client
 	Signer     types.Signer
 	Context    context.Context
 }
 
-func NewSigner(chainId *big.Int, priv string) (*Signer, error) {
+func NewSigner(context context.Context, priv string, ethClient *ethclient.Client) (*Signer, error) {
 	privateKey, err := crypto.HexToECDSA(priv)
 	if err != nil {
 		return nil, err
@@ -34,22 +38,28 @@ func NewSigner(chainId *big.Int, priv string) (*Signer, error) {
 
 	signerAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 
-	return &Signer{
-		privateKey: privateKey,
-		PublicKey:  publicKeyECDSA,
-		Address:    signerAddress,
-		Signer:     types.NewLondonSigner(chainId),
-		Context:    context.Background(),
-	}, nil
-}
-
-func (signer *Signer) GetAuth(ethClient *ethclient.Client) (*bind.TransactOpts, error) {
-	gasPrice, err := ethClient.SuggestGasPrice(signer.Context)
+	chainId, err := ethClient.ChainID(context)
 	if err != nil {
 		return nil, err
 	}
 
-	chainId, err := ethClient.ChainID(signer.Context)
+	return &Signer{
+		privateKey: privateKey,
+		PublicKey:  publicKeyECDSA,
+		Address:    signerAddress,
+		ethClient:  ethClient,
+		Signer:     types.NewLondonSigner(chainId),
+		Context:    context,
+	}, nil
+}
+
+func (signer *Signer) GetAuth() (*bind.TransactOpts, error) {
+	gasPrice, err := signer.ethClient.SuggestGasPrice(signer.Context)
+	if err != nil {
+		return nil, err
+	}
+
+	chainId, err := signer.ethClient.ChainID(signer.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -60,54 +70,53 @@ func (signer *Signer) GetAuth(ethClient *ethclient.Client) (*bind.TransactOpts, 
 	}
 
 	auth.Value = big.NewInt(0)
-	auth.GasLimit = uint64(800000)
+	// auth.GasLimit = uint64(800000)
 	auth.GasPrice = gasPrice
 
 	return auth, nil
 }
 
-func (signer *Signer) GenerateDynamicTx(ethClient *ethclient.Client, to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	chainId, err := ethClient.ChainID(signer.Context)
+func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
+	chainId, err := signer.ethClient.ChainID(signer.Context)
 	if err != nil {
 		return nil, err
 	}
 
-	nonce, err := ethClient.PendingNonceAt(signer.Context, signer.Address)
+	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	tipCap, err := ethClient.SuggestGasTipCap(signer.Context)
+	tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
 	if err != nil {
 		return nil, err
 	}
-	feeCap, err := ethClient.SuggestGasPrice(signer.Context)
+	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
 	if err != nil {
 		return nil, err
 	}
 
-	// callMsg := ethereum.CallMsg{
-	// 	From:      signer.Address,
-	// 	To:        to,
-	// 	Gas:       math.MaxInt64,
-	// 	GasTipCap: tipCap,
-	// 	GasFeeCap: feeCap,
-	// 	Value:     value,
-	// 	Data:      data,
-	// }
+	fmt.Printf("From: %s, To: %s, Value: %s, Data: %s", signer.Address.String(), to.String(), hex.EncodeToString(value.Bytes()), hex.EncodeToString(data))
 
-	// gasLimit, err := ethClient.EstimateGas(signer.Context, callMsg)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	callMsg := ethereum.CallMsg{
+		From:  signer.Address,
+		To:    to,
+		Value: value,
+		Data:  data,
+	}
+
+	gasLimit, err := signer.ethClient.EstimateGas(signer.Context, callMsg)
+	if err != nil {
+		return nil, err
+	}
 
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
 			ChainID:   chainId,
 			Nonce:     nonce,
 			GasTipCap: tipCap,
-			GasFeeCap: feeCap,
-			Gas:       uint64(800000),
+			GasFeeCap: feeCap.Add(feeCap, tipCap),
+			Gas:       gasLimit,
 			To:        to,
 			Value:     value,
 			Data:      data,

@@ -24,25 +24,29 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func Deposit(ctx *cli.Context, context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
+func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
 	signer, err := clients.NewSigner(context, config.Sender.PrivateKey, svc.EthClient)
 	if err != nil {
 		return err
 	}
 
+	// TODO: need to set l2 priv key into yaml
 	l2PrivateKey := babyjub.NewRandPrivKey()
 	l2PublicKey := l2PrivateKey.Public()
 
 	accountIndex := ctx.Int64(flags.AccountIndexFlag.Name)
-	depositAmount := new(big.Int)
-	depositAmount, ok := depositAmount.SetString(ctx.String(flags.DepositAmountFlag.Name), 10)
+	withdrawAmount := new(big.Int)
+	withdrawAmount, ok := withdrawAmount.SetString(ctx.String(flags.WithdrawAmountFlag.Name), 10)
 	if !ok {
 		return fmt.Errorf("cannot convert deposit amount to big int")
 	}
 
-	depositInputs := &circuits.DepositInputs{
-		Root:          svc.AccountTree.GetRoot(),
-		DepositAmount: depositAmount,
+	signature := l2PrivateKey.SignMimc7(withdrawAmount)
+
+	withdrawInputs := &circuits.WithdrawInputs{
+		Root:           svc.AccountTree.GetRoot(),
+		WithdrawAmount: withdrawAmount,
+		Signature:      signature,
 	}
 
 	var mtProof *merkletree.CircomProcessorProof
@@ -50,6 +54,8 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 	accountDto, err := svc.AccountService.GetAccountByIndex(accountIndex)
 
 	// TODO: will occur err if the account exists
+	// merkle tree issue, if don't save merkle tree in db,
+	// need to figure out how to recover the merkle tree
 	if err == daos.ErrAccountNotFound {
 		userIndex, err := svc.AccountService.GetCurrentAccountIndex()
 		if err != nil {
@@ -80,51 +86,35 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		}
 	}
 
-	depositInputs.Account = accountDto
-	depositInputs.MTProof = mtProof
+	withdrawInputs.Account = accountDto
+	withdrawInputs.MTProof = mtProof
 
-	circuitInput, err := depositInputs.InputsMarshal()
+	circuitInput, err := withdrawInputs.InputsMarshal()
 	if err != nil {
 		return err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/withdraw")
 	if err != nil {
 		return err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
+	if err = circuits.VerifierGroth16(proof, circuitPath+"/withdraw"); err != nil {
 		return err
 	}
 
-	var depositOutputs circuits.DepositOutputs
-	if err = depositOutputs.OutputUnmarshal(proof); err != nil {
+	var withdrawOutputs circuits.WithdrawOutputs
+	if err = withdrawOutputs.OutputUnmarshal(proof); err != nil {
 		return err
 	}
 
-	// contract, err := contracts.NewRollup(common.HexToAddress(config.SmartContract.Address), svc.EthClient)
-	// if err != nil {
-	// 	fmt.Printf("Cannot init contract instance: %v", err)
-	// }
-
-	// auth, err := signer.GetAuth(svc.EthClient)
-	// if err != nil {
-	// 	fmt.Printf("Cannot get auth: %v", err)
-	// }
-	// auth.Value = depositAmount
-
-	// _, err = contract.Deposit(auth, depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
-	// if err != nil {
-	// 	fmt.Printf("Deposit err: %v", err)
-	// }
-
-	data, err := svc.Abi.Pack("deposit", depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
+	data, err := svc.Abi.Pack("withdraw", withdrawAmount, withdrawOutputs.Proof.A, withdrawOutputs.Proof.B, withdrawOutputs.Proof.C, withdrawOutputs.PublicSignals)
 	if err != nil {
 		fmt.Printf("Cannot pack rollup call data: %v", err)
 	}
 
 	rollupAddress := common.HexToAddress(config.SmartContract.Address)
-	tx, err := signer.GenerateDynamicTx(&rollupAddress, data, depositAmount)
+	tx, err := signer.GenerateDynamicTx(&rollupAddress, data, withdrawAmount)
 	if err != nil {
 		return err
 	}
@@ -139,14 +129,15 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		return err
 	}
 
-	depositInfo := txmanager.DepositInfo{
-		AccountIndex:  accountIndex,
-		PublicKey:     l2PublicKey.String(),
-		DepositAmount: depositAmount,
-		SignedTxHash:  hex.EncodeToString(rawTxBytes),
+	withdrawInfo := txmanager.WithdrawInfo{
+		AccountIndex:   accountIndex,
+		PublicKey:      l2PublicKey.String(),
+		Signature:      signature,
+		WithdrawAmount: withdrawAmount,
+		SignedTxHash:   hex.EncodeToString(rawTxBytes),
 	}
 
-	requestBody, err := json.Marshal(depositInfo)
+	requestBody, err := json.Marshal(withdrawInfo)
 	if err != nil {
 		return err
 	}
