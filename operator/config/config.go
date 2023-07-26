@@ -12,8 +12,7 @@ type Config struct {
 	Redis         Redis         `mapstructure:"redis"`
 	SmartContract SmartContract `mapstructure:"smartcontract"`
 	EthClient     EthClient     `mapstructure:"ethclient"`
-	Sender        Sender        `mapstructure:"sender"`
-	Recipient     Recipient     `mapstructure:"recipient"`
+	Accounts      []Account     `mapstructure:"accounts"`
 	Circuit       Circuit       `mapstructure:"circuit"`
 }
 
@@ -33,10 +32,26 @@ func (postgres *Postgres) DSN() string {
 }
 
 type Redis struct {
-	Host       string `mapstructure:"host"`
-	Password   string `mapstructure:"password"`
-	Port       string `mapstructure:"port"`
-	Prometheus string `mapstructure:"prometheus"`
+	Host       string   `mapstructure:"host"`
+	Password   string   `mapstructure:"password"`
+	Port       string   `mapstructure:"port"`
+	Prometheus string   `mapstructure:"prometheus"`
+	Keys       Keys     `mapstructure:"keys"`
+	Commands   Commands `mapstructure:"commands"`
+	Channels   Channels `mapstructure:"channels"`
+}
+
+type Keys struct {
+	LastInsertedKey string `mapstructure:"lastinsertedkey"`
+}
+
+type Commands struct {
+	RollupCommand string `mapstructure:"rollupcommand"`
+}
+
+type Channels struct {
+	SendTxCh string `mapstructure:"sendtxchannel"`
+	RollupCh string `mapstructure:"rollupchannel"`
 }
 
 func (redis *Redis) Addr() string {
@@ -54,20 +69,20 @@ type EthClient struct {
 	PrivateKey string `mapstructure:"privatekey"`
 }
 
-type Sender struct {
-	PrivateKey string `mapstructure:"privatekey"`
-}
-
-type Recipient struct {
-	PrivateKey string `mapstructure:"privatekey"`
+type Account struct {
+	EcdsaPrivKey string `mapstructure:"ecdsaprivkey"`
+	Index        int64  `mapstructure:"index"`
+	EddsaPrivKey string `mapstructure:"eddsaprivkey"`
 }
 
 type Circuit struct {
 	Path string `mapstructure:"path"`
 }
 
-func LoadConfig(path string) (config *Config, err error) {
-	viper.AddConfigPath(path)
+func LoadConfig(paths ...string) (config *Config, err error) {
+	for _, path := range paths {
+		viper.AddConfigPath(path)
+	}
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("env.example")
 

@@ -1,5 +1,0 @@
-package clients
-
-const (
-	rollupAddress = ""
-)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,9 +23,12 @@ type RollupPubSub struct {
 	abi             *abi.ABI
 	channel         string
 	context         context.Context
+	circuitPath     string
+	keys            *config.Keys
+	commands        *config.Commands
 }
 
-func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context, contractAddress string) Subscriber {
+func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context, contractAddress string, circuitPath string, config *config.Redis) Subscriber {
 	rollupContract := common.HexToAddress(contractAddress)
 	return &RollupPubSub{
 		redisCache:      redisCache,
@@ -34,6 +38,9 @@ func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethcl
 		abi:             abi,
 		channel:         channel,
 		context:         context,
+		circuitPath:     circuitPath,
+		keys:            &config.Keys,
+		commands:        &config.Commands,
 	}
 }
 
@@ -48,9 +55,9 @@ func (pubsub *RollupPubSub) Receive() {
 	go func() {
 		for msg := range ch {
 			switch msg.String() {
-			case rollUpCommand:
+			case pubsub.commands.RollupCommand:
 				// get tx amounts from redis
-				lastInsertedTx, err := pubsub.redisCache.Get(pubsub.context, lastInsertedKey, new(int))
+				lastInsertedTx, err := pubsub.redisCache.Get(pubsub.context, pubsub.keys.LastInsertedKey, new(int))
 				if err != nil {
 					fmt.Printf("Get tx num err: %v", err)
 				}
@@ -74,12 +81,12 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Circuit inputs marshal err: %v", err)
 				}
 
-				proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/tx")
+				proof, err := circuits.GenerateGroth16Proof(circuitInput, pubsub.circuitPath+"/tx")
 				if err != nil {
 					fmt.Printf("Generate proof err: %v", err)
 				}
 
-				if err = circuits.VerifierGroth16(proof, circuitPath+"/tx"); err != nil {
+				if err = circuits.VerifierGroth16(proof, pubsub.circuitPath+"/tx"); err != nil {
 					fmt.Printf("Verify proof err: %v", err)
 				}
 
@@ -107,7 +114,7 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Send tx err: %v", err)
 				}
 
-				if err = pubsub.redisCache.Set(pubsub.context, lastInsertedKey, -1); err != nil {
+				if err = pubsub.redisCache.Set(pubsub.context, pubsub.keys.LastInsertedKey, -1); err != nil {
 					fmt.Printf("Update redis err: %v", err)
 				}
 

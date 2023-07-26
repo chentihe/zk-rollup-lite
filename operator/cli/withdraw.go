@@ -19,29 +19,28 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/urfave/cli/v2"
 )
 
 func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
-	signer, err := clients.NewSigner(context, config.Sender.PrivateKey, svc.EthClient)
+	circuitPath := config.Circuit.Path + "/withdraw"
+
+	accountIndex := ctx.Int64(flags.AccountIndexFlag.Name)
+	account := config.Accounts[accountIndex]
+	signer, err := clients.NewSigner(context, account.EcdsaPrivKey, svc.EthClient)
 	if err != nil {
 		return err
 	}
 
 	// TODO: need to set l2 priv key into yaml
-	l2PrivateKey := babyjub.NewRandPrivKey()
-	l2PublicKey := l2PrivateKey.Public()
-
-	accountIndex := ctx.Int64(flags.AccountIndexFlag.Name)
-	withdrawAmount := new(big.Int)
-	withdrawAmount, ok := withdrawAmount.SetString(ctx.String(flags.WithdrawAmountFlag.Name), 10)
-	if !ok {
-		return fmt.Errorf("cannot convert deposit amount to big int")
+	user, err := NewUser(account.EddsaPrivKey)
+	if err != nil {
+		return err
 	}
 
-	signature := l2PrivateKey.SignMimc7(withdrawAmount)
+	withdrawAmount := ToWei(ctx.String(flags.DepositAmountFlag.Name), 18)
+	signature := user.privateKey.SignMimc7(withdrawAmount)
 
 	withdrawInputs := &circuits.WithdrawInputs{
 		Root:           svc.AccountTree.GetRoot(),
@@ -64,7 +63,7 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 
 		accountDto = &models.AccountDto{
 			AccountIndex: userIndex,
-			PublicKey:    l2PublicKey.String(),
+			PublicKey:    user.PublicKey.String(),
 			Balance:      big.NewInt(0),
 			Nonce:        0,
 		}
@@ -94,17 +93,17 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 		return err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/withdraw")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
 	if err != nil {
 		return err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/withdraw"); err != nil {
+	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
 		return err
 	}
 
 	var withdrawOutputs circuits.WithdrawOutputs
-	if err = withdrawOutputs.OutputUnmarshal(proof); err != nil {
+	if err = withdrawOutputs.OutputsUnmarshal(proof); err != nil {
 		return err
 	}
 
@@ -131,7 +130,7 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 
 	withdrawInfo := txmanager.WithdrawInfo{
 		AccountIndex:   accountIndex,
-		PublicKey:      l2PublicKey.String(),
+		PublicKey:      user.PublicKey.String(),
 		Signature:      signature,
 		WithdrawAmount: withdrawAmount,
 		SignedTxHash:   hex.EncodeToString(rawTxBytes),

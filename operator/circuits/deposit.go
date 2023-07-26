@@ -32,13 +32,6 @@ type depositCircuitInputs struct {
 	Func            [2]string `json:"func"`
 }
 
-const (
-	NOP = iota
-	UPDATE
-	INSERT
-	DELETE
-)
-
 func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 	circuitInputs := &depositCircuitInputs{
 		BalanceTreeRoot: d.Root.String(),
@@ -85,7 +78,7 @@ type DepositOutputs struct {
 	PublicSignals [5]*big.Int
 }
 
-func (d *DepositOutputs) OutputUnmarshal(proof *types.ZKProof) error {
+func (d *DepositOutputs) OutputsUnmarshal(proof *types.ZKProof) error {
 	inputs, err := stringsToArrayBigInt(proof.PubSignals)
 	if err != nil {
 		return err

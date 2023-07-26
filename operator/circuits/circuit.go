@@ -46,18 +46,15 @@ func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 	return nil
 }
 
-type Input interface {
-	InputMarshaller
+type Data struct {
+	Input  InputsMarshaller
+	Output OutputsUnmarshaller
 }
 
-type InputMarshaller interface {
-	InputMarshal() ([]byte, error)
+type InputsMarshaller interface {
+	InputsMarshal() ([]byte, error)
 }
 
-type Output interface {
-	OutputUnmarshaller
-}
-
-type OutputUnmarshaller interface {
-	OutputUnmarshal(zkp *types.ZKProof) error
+type OutputsUnmarshaller interface {
+	OutputsUnmarshal(zkp *types.ZKProof) error
 }

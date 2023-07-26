@@ -72,7 +72,7 @@ func (w *WithdrawInputs) InputsMarshal() ([]byte, error) {
 	case UPDATE:
 		op = [2]string{"0", "1"}
 	case NOP, DELETE:
-		return nil, fmt.Errorf("Should not indicate these function")
+		return nil, fmt.Errorf("Should not indicate these functions")
 	default:
 		return nil, fmt.Errorf("Invalid function")
 	}
@@ -87,7 +87,7 @@ type WithdrawOutputs struct {
 	PublicSignals [5]*big.Int
 }
 
-func (w *WithdrawOutputs) OutputUnmarshal(proof *types.ZKProof) error {
+func (w *WithdrawOutputs) OutputsUnmarshal(proof *types.ZKProof) error {
 	inputs, err := stringsToArrayBigInt(proof.PubSignals)
 	if err != nil {
 		return err

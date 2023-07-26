@@ -7,6 +7,7 @@ import (
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
@@ -23,9 +24,11 @@ type TransactionService struct {
 	signer         *clients.Signer
 	abi            *abi.ABI
 	context        context.Context
+	circuitPath    string
+	keys           *config.Keys
 }
 
-func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, signer *clients.Signer, abi *abi.ABI, context context.Context) *TransactionService {
+func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, signer *clients.Signer, abi *abi.ABI, context context.Context, circuitPath string, keys *config.Keys) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
@@ -33,11 +36,15 @@ func NewTransactionService(accountService *AccountService, tree *tree.AccountTre
 		signer:         signer,
 		abi:            abi,
 		context:        context,
+		circuitPath:    circuitPath,
+		keys:           keys,
 	}
 }
 
 // only verify the zkp since the signature is signed by user
 func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error {
+	circuitPath := service.circuitPath + "/deposit"
+
 	depositInputs := &circuits.DepositInputs{
 		Root:          service.accountTree.GetRoot(),
 		DepositAmount: deposit.DepositAmount,
@@ -90,12 +97,12 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 		return err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
 	if err != nil {
 		return err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
+	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
 		return err
 	}
 
@@ -104,6 +111,8 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 
 // only verify the zkp since the signature is signed by user
 func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) error {
+	circuitPath := service.circuitPath + "/withdraw"
+
 	if err := withdraw.VerifySignature(); err != nil {
 		return err
 	}
@@ -134,17 +143,17 @@ func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) er
 		return err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/withdraw")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
 	if err != nil {
 		return err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/withdraw"); err != nil {
+	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
 		return err
 	}
 
 	var withdrawOutputs circuits.WithdrawOutputs
-	if err = withdrawOutputs.OutputUnmarshal(proof); err != nil {
+	if err = withdrawOutputs.OutputsUnmarshal(proof); err != nil {
 		return err
 	}
 
@@ -222,7 +231,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return math.MaxInt64, err
 	}
 
-	lastInsertedTx, err := service.redisCache.Get(service.context, lastInsertedKey, new(int))
+	lastInsertedTx, err := service.redisCache.Get(service.context, service.keys.LastInsertedKey, new(int))
 	if err != nil {
 		return math.MaxInt64, err
 	}
@@ -252,7 +261,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		}
 	}
 
-	if err = service.redisCache.Set(service.context, lastInsertedKey, lastInsertedTx); err != nil {
+	if err = service.redisCache.Set(service.context, service.keys.LastInsertedKey, lastInsertedTx); err != nil {
 		return math.MaxInt64, err
 	}
 

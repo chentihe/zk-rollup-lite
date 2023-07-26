@@ -16,6 +16,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"gorm.io/gorm"
 )
@@ -66,7 +67,8 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	}
 	accountService := services.NewAccountService(&accountDao)
 	accountController := controllers.NewAccountController(accountService)
-	accountTree, err := tree.InitAccountTree()
+	contractAddress := common.HexToAddress(config.SmartContract.Address)
+	accountTree, err := tree.InitAccountTree(context, ethClient, &contractAbi, &contractAddress)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}
@@ -76,10 +78,10 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}
 
-	transctionService := services.NewTransactionService(accountService, accountTree, redis, signer, &contractAbi, context)
+	transctionService := services.NewTransactionService(accountService, accountTree, redis, signer, &contractAbi, context, config.Circuit.Path, &config.Redis.Keys)
 
-	txPubSub := pubsubs.NewTxPubSub(context, redis, ethClient, "sendTxChannel")
-	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, "rollupChannel", context, config.SmartContract.Address)
+	txPubSub := pubsubs.NewTxPubSub(context, redis, ethClient, config.Redis.Channels.SendTxCh)
+	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, config.Redis.Channels.RollupCh, context, config.SmartContract.Address, config.Circuit.Path, &config.Redis)
 
 	tracsactionController := controllers.NewTransactionController(transctionService, &txPubSub)
 

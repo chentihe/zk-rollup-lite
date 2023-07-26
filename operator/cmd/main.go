@@ -22,7 +22,7 @@ import (
 func main() {
 	context := context.Background()
 
-	config, err := config.LoadConfig("../config")
+	config, err := config.LoadConfig("../config", "./config")
 	if err != nil {
 		panic(err)
 	}
@@ -44,13 +44,17 @@ func main() {
 					return zkCli.Deposit(ctx, context, config, svc)
 				},
 			},
-			// {
-			// 	Name:  "withdraw",
-			// 	Usage: "Withdraw ethers from the rollup contract",
-			// 	Action: func(ctx *cli.Context) error {
-
-			// 	},
-			// },
+			{
+				Name:  "withdraw",
+				Usage: "Withdraw ethers from the rollup contract",
+				Flags: []cli.Flag{
+					flags.WithdrawAmountFlag,
+					flags.AccountIndexFlag,
+				},
+				Action: func(ctx *cli.Context) error {
+					return zkCli.Withdraw(ctx, context, config, svc)
+				},
+			},
 			{
 				Name:  "startapp",
 				Usage: "Start the layer2 app",
@@ -73,7 +77,7 @@ func StartServer(context context.Context, config *config.Config, svc *servicecon
 	routes.RegisterRouters(router, svc)
 
 	server := &http.Server{
-		Addr:    ":" + "8000",
+		Addr:    ":" + config.Server.Port,
 		Handler: router,
 	}
 

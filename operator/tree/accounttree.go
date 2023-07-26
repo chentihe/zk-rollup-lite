@@ -4,7 +4,14 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/chentihe/zk-rollup-lite/operator/layer1"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-merkletree-sql/v2/db/memory"
 )
@@ -15,27 +22,50 @@ type AccountTree struct {
 	MT *merkletree.MerkleTree
 }
 
-// TODO: check which one is better? memory or postgresdb
-func InitAccountTree() (*AccountTree, error) {
-	// TODO: move to env
-	// urlExample := "postgres://username:password@localhost:5432/database-name"
-	// mtId := uint64(1)
+var depositHash = crypto.Keccak256Hash([]byte("Deposit((uint256,uint256,uint256,uint256,uint256))"))
 
-	// TODO: pgxPool & context should move to main.go
-	// pass into this func as an arg
-	ctx := context.Background()
-	// pgxPool, err := pgxpool.New(ctx, urlExample)
-	// if err != nil {
-	// 	return nil, errors.New("unable to connect to the database")
-	// }
-	// defer pgxPool.Close()
-
-	// treeStorage := sql.NewSqlStorage(pgxPool, mtId)
+func InitAccountTree(context context.Context, ethClient *ethclient.Client, abi *abi.ABI, contractAddress *common.Address) (*AccountTree, error) {
 	treeStorage := memory.NewMemoryStorage()
-
-	mt, err := merkletree.NewMerkleTree(ctx, treeStorage, mtDepth)
+	mt, err := merkletree.NewMerkleTree(context, treeStorage, mtDepth)
 	if err != nil {
 		return nil, err
+	}
+
+	query := ethereum.FilterQuery{
+		Addresses: []common.Address{
+			*contractAddress,
+		},
+		Topics: [][]common.Hash{{
+			depositHash,
+		}},
+	}
+
+	logs, err := ethClient.FilterLogs(context, query)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vLog := range logs {
+		var deposit layer1.Deposit
+		if err := abi.UnpackIntoInterface(&deposit, "Deposit", vLog.Data); err != nil {
+			return nil, err
+		}
+
+		user := deposit.User
+		publicKey := babyjub.PublicKey(babyjub.Point{X: user.PublicKeyX, Y: user.PublicKeyY})
+
+		accountDto := &models.AccountDto{
+			AccountIndex: user.Index.Int64(),
+			PublicKey:    publicKey.String(),
+			Nonce:        user.Nonce.Int64(),
+		}
+
+		accountLeaf, err := GenerateAccountLeaf(accountDto)
+		if err != nil {
+			return nil, err
+		}
+
+		mt.Add(context, user.Index, accountLeaf)
 	}
 
 	return &AccountTree{mt}, nil

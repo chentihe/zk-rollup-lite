@@ -19,26 +19,26 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/urfave/cli/v2"
 )
 
 func Deposit(ctx *cli.Context, context context.Context, config *config.Config, svc *servicecontext.ServiceContext) error {
-	signer, err := clients.NewSigner(context, config.Sender.PrivateKey, svc.EthClient)
+	circuitPath := config.Circuit.Path + "/deposit"
+
+	accountIndex := ctx.Int64(flags.AccountIndexFlag.Name)
+	account := config.Accounts[accountIndex]
+	signer, err := clients.NewSigner(context, account.EcdsaPrivKey, svc.EthClient)
 	if err != nil {
 		return err
 	}
 
-	l2PrivateKey := babyjub.NewRandPrivKey()
-	l2PublicKey := l2PrivateKey.Public()
-
-	accountIndex := ctx.Int64(flags.AccountIndexFlag.Name)
-	depositAmount := new(big.Int)
-	depositAmount, ok := depositAmount.SetString(ctx.String(flags.DepositAmountFlag.Name), 10)
-	if !ok {
-		return fmt.Errorf("cannot convert deposit amount to big int")
+	user, err := NewUser(account.EddsaPrivKey)
+	if err != nil {
+		return err
 	}
+
+	depositAmount := ToWei(ctx.String(flags.DepositAmountFlag.Name), 18)
 
 	depositInputs := &circuits.DepositInputs{
 		Root:          svc.AccountTree.GetRoot(),
@@ -58,7 +58,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 		accountDto = &models.AccountDto{
 			AccountIndex: userIndex,
-			PublicKey:    l2PublicKey.String(),
+			PublicKey:    user.PublicKey.String(),
 			Balance:      big.NewInt(0),
 			Nonce:        0,
 		}
@@ -88,35 +88,19 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		return err
 	}
 
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath+"/deposit")
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
 	if err != nil {
 		return err
 	}
 
-	if err = circuits.VerifierGroth16(proof, circuitPath+"/deposit"); err != nil {
+	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
 		return err
 	}
 
 	var depositOutputs circuits.DepositOutputs
-	if err = depositOutputs.OutputUnmarshal(proof); err != nil {
+	if err = depositOutputs.OutputsUnmarshal(proof); err != nil {
 		return err
 	}
-
-	// contract, err := contracts.NewRollup(common.HexToAddress(config.SmartContract.Address), svc.EthClient)
-	// if err != nil {
-	// 	fmt.Printf("Cannot init contract instance: %v", err)
-	// }
-
-	// auth, err := signer.GetAuth(svc.EthClient)
-	// if err != nil {
-	// 	fmt.Printf("Cannot get auth: %v", err)
-	// }
-	// auth.Value = depositAmount
-
-	// _, err = contract.Deposit(auth, depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
-	// if err != nil {
-	// 	fmt.Printf("Deposit err: %v", err)
-	// }
 
 	data, err := svc.Abi.Pack("deposit", depositOutputs.Proof.A, depositOutputs.Proof.B, depositOutputs.Proof.C, depositOutputs.PublicSignals)
 	if err != nil {
@@ -141,7 +125,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 	depositInfo := txmanager.DepositInfo{
 		AccountIndex:  accountIndex,
-		PublicKey:     l2PublicKey.String(),
+		PublicKey:     user.PublicKey.String(),
 		DepositAmount: depositAmount,
 		SignedTxHash:  hex.EncodeToString(rawTxBytes),
 	}

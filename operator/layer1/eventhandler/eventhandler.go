@@ -3,9 +3,9 @@ package eventhandler
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
+	"github.com/chentihe/zk-rollup-lite/operator/layer1"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
@@ -16,14 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
-
-type User struct {
-	Index      *big.Int `json:"index"`
-	PublicKeyX *big.Int `json:"publicKeyX"`
-	PublicKeyY *big.Int `json:"publicKeyY"`
-	Balance    *big.Int `json:"balance"`
-	Nonce      *big.Int `json:"nonce"`
-}
 
 type EventHandler struct {
 	context   context.Context
@@ -53,7 +45,6 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 	}, nil
 }
 
-// TODO: not catching the deposit event
 func (e *EventHandler) Listening() {
 	fmt.Println("Listening to events...")
 
@@ -87,12 +78,8 @@ func (e *EventHandler) Listening() {
 	}()
 }
 
-type Withdraw struct {
-	User User
-}
-
 func (e *EventHandler) afterWithdraw(vLog *types.Log) error {
-	var withdraw Withdraw
+	var withdraw layer1.Withdraw
 	if err := e.abi.UnpackIntoInterface(&withdraw, "Withdraw", vLog.Data); err != nil {
 		return err
 	}
@@ -118,12 +105,8 @@ func (e *EventHandler) afterWithdraw(vLog *types.Log) error {
 	return nil
 }
 
-type Deposit struct {
-	User User
-}
-
 func (e *EventHandler) afterDeposit(vLog *types.Log) error {
-	var deposit Deposit
+	var deposit layer1.Deposit
 	if err := e.abi.UnpackIntoInterface(&deposit, "Deposit", vLog.Data); err != nil {
 		return err
 	}
