@@ -2,7 +2,6 @@ package pubsubs
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
@@ -38,18 +37,17 @@ func (pubsub *TxPubSub) Receive() {
 		for msg := range ch {
 
 			txHash := msg.Payload
-			log.Printf("Received a new signed tx: %s", txHash)
-
 			tx, err := layer1.DecodeTxHash(txHash)
 			if err != nil {
-				log.Printf("Decode tx error: %s", err)
+				log.Printf("Decode tx error: %s\n", err)
 			}
+			log.Printf("Received a new signed tx: %s\n", tx.Hash().String())
 
 			err = pubsub.ethClient.SendTransaction(pubsub.context, tx)
 			if err != nil {
-				log.Printf("Send tx error: %s", err)
+				log.Printf("Send tx error: %s\n", err)
 			} else {
-				fmt.Printf("send tx success: %#v", tx.Hash().String())
+				log.Printf("send tx success: %#v\n", tx.Hash().String())
 			}
 		}
 	}()

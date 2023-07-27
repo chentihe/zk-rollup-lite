@@ -7,6 +7,7 @@ type AccountDao interface {
 	GetCurrentAccountIndex() (int64, error)
 	CreateAccount(account *models.Account) error
 	UpdateAccount(account *models.Account) error
+	DeleteAccountByIndex(index int64) error
 	CreateAccountTable() error
 	DropAccountTable() error
 }

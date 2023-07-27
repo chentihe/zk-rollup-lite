@@ -14,7 +14,6 @@ import (
 
 type DepositInputs struct {
 	Account       *models.AccountDto
-	Root          *merkletree.Hash
 	DepositAmount *big.Int
 	MTProof       *merkletree.CircomProcessorProof
 }
@@ -34,12 +33,12 @@ type depositCircuitInputs struct {
 
 func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 	circuitInputs := &depositCircuitInputs{
-		BalanceTreeRoot: d.Root.String(),
+		BalanceTreeRoot: d.MTProof.OldRoot.BigInt().String(),
 		Balance:         d.Account.Balance.String(),
 		Nonce:           strconv.Itoa(int(d.Account.Nonce)),
-		OldKey:          d.MTProof.OldKey.String(),
-		OldValue:        d.MTProof.OldValue.String(),
-		NewKey:          d.MTProof.NewKey.String(),
+		OldKey:          d.MTProof.OldKey.BigInt().String(),
+		OldValue:        d.MTProof.OldValue.BigInt().String(),
+		NewKey:          d.MTProof.NewKey.BigInt().String(),
 	}
 
 	publicKey, err := tree.StringifyPublicKey(d.Account.PublicKey)

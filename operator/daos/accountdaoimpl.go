@@ -82,3 +82,14 @@ func (dao *AccountDaoImpl) UpdateAccount(account *models.Account) (err error) {
 
 	return nil
 }
+
+func (dao *AccountDaoImpl) DeleteAccountByIndex(index int64) error {
+	dbTx := dao.DB.
+		Where("account_index = ?", index).
+		Unscoped().
+		Delete(&models.Account{})
+	if dbTx.Error != nil {
+		return dbTx.Error
+	}
+	return nil
+}

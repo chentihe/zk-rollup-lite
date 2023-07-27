@@ -56,6 +56,16 @@ func main() {
 				},
 			},
 			{
+				Name:  "delete",
+				Usage: "Delete the node from the merkle tree",
+				Flags: []cli.Flag{
+					flags.AccountIndexFlag,
+				},
+				Action: func(ctx *cli.Context) error {
+					return zkCli.DeleteNode(ctx, svc)
+				},
+			},
+			{
 				Name:  "startapp",
 				Usage: "Start the layer2 app",
 				Action: func(ctx *cli.Context) error {

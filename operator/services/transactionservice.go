@@ -46,7 +46,6 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 	circuitPath := service.circuitPath + "/deposit"
 
 	depositInputs := &circuits.DepositInputs{
-		Root:          service.accountTree.GetRoot(),
 		DepositAmount: deposit.DepositAmount,
 	}
 
@@ -149,11 +148,6 @@ func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) er
 	}
 
 	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
-		return err
-	}
-
-	var withdrawOutputs circuits.WithdrawOutputs
-	if err = withdrawOutputs.OutputsUnmarshal(proof); err != nil {
 		return err
 	}
 

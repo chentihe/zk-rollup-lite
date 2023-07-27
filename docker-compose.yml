@@ -79,8 +79,8 @@ services:
       - 5432:5432
     networks:
       - postgres-network
-    # volumes:
-    #   - ./operator/database/schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    volumes:
+      - ./operator/tree/schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
     restart: on-failure:3
 
   pgweb:

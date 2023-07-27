@@ -40,3 +40,7 @@ func (service *AccountService) CreateAccount(accountDto *models.AccountDto) (err
 func (service *AccountService) UpdateAccount(accountDto *models.AccountDto) (err error) {
 	return service.AccountDao.UpdateAccount(accountDto.ToModel())
 }
+
+func (service *AccountService) DeleteAccountByIndex(index int64) error {
+	return service.AccountDao.DeleteAccountByIndex(index)
+}

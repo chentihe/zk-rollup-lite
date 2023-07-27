@@ -41,7 +41,6 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 	depositAmount := ToWei(ctx.String(flags.DepositAmountFlag.Name), 18)
 
 	depositInputs := &circuits.DepositInputs{
-		Root:          svc.AccountTree.GetRoot(),
 		DepositAmount: depositAmount,
 	}
 
@@ -63,6 +62,10 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 			Nonce:        0,
 		}
 
+		if err := svc.AccountService.CreateAccount(accountDto); err != nil {
+			return err
+		}
+
 		leaf, err := tree.GenerateAccountLeaf(accountDto)
 		if err != nil {
 			return err
@@ -73,6 +76,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 			return err
 		}
 	} else {
+		// zkp new root should be the new state root cannot use mock merkle tree proof
 		// mock update to get the circuit processor proof
 		mtProof, err = svc.AccountTree.UpdateAccountTree(accountDto)
 		if err != nil {

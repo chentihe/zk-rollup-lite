@@ -58,7 +58,7 @@ func StringifyPublicKey(comp string) (*[2]string, error) {
 func StringifyPath(siblings []*merkletree.Hash) [6]string {
 	pathElements := [6]string{}
 	for i, sibling := range siblings {
-		pathElements[i] = sibling.String()
+		pathElements[i] = sibling.BigInt().String()
 	}
 	return pathElements
 }

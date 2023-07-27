@@ -3,8 +3,6 @@ package clients
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -96,8 +94,6 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 		return nil, err
 	}
 
-	fmt.Printf("From: %s, To: %s, Value: %s, Data: %s", signer.Address.String(), to.String(), hex.EncodeToString(value.Bytes()), hex.EncodeToString(data))
-
 	callMsg := ethereum.CallMsg{
 		From:  signer.Address,
 		To:    to,
@@ -115,7 +111,7 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 			ChainID:   chainId,
 			Nonce:     nonce,
 			GasTipCap: tipCap,
-			GasFeeCap: feeCap.Add(feeCap, tipCap),
+			GasFeeCap: feeCap,
 			Gas:       gasLimit,
 			To:        to,
 			Value:     value,

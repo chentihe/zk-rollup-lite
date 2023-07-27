@@ -68,7 +68,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	accountService := services.NewAccountService(&accountDao)
 	accountController := controllers.NewAccountController(accountService)
 	contractAddress := common.HexToAddress(config.SmartContract.Address)
-	accountTree, err := tree.InitAccountTree(context, ethClient, &contractAbi, &contractAddress)
+	accountTree, err := tree.InitAccountTree(context, ethClient, &contractAbi, &contractAddress, &config.Postgres)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}

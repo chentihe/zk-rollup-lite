@@ -24,11 +24,16 @@ type Postgres struct {
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
 	Name     string `mapstructure:"name"`
+	Host     string `mapstructure:"host"`
 	Port     string `mapstructure:"port"`
 }
 
 func (postgres *Postgres) DSN() string {
-	return fmt.Sprintf("host=localhost user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei", postgres.Username, postgres.Password, postgres.Name, postgres.Port)
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei", postgres.Host, postgres.Username, postgres.Password, postgres.Name, postgres.Port)
+}
+
+func (postgres *Postgres) Url() string {
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s", postgres.Username, postgres.Password, postgres.Host, postgres.Port, postgres.Name)
 }
 
 type Redis struct {

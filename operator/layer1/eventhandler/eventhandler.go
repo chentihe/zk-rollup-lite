@@ -3,6 +3,7 @@ package eventhandler
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1"
@@ -59,18 +60,18 @@ func (e *EventHandler) Listening() {
 		for {
 			select {
 			case err := <-sub.Err():
-				fmt.Printf("Subscription err: %v", err)
+				log.Printf("Subscription err: %v\n", err)
 			case vLog := <-logs:
 				switch vLog.Topics[0] {
 				case depositHash:
-					fmt.Println("Deposit Event")
+					log.Println("Deposit Event")
 					if err := e.afterDeposit(&vLog); err != nil {
-						fmt.Printf("Deposit event err: %v", err)
+						log.Printf("Deposit event err: %v", err)
 					}
 				case withdrawHash:
-					fmt.Println("Withdraw Event")
+					log.Println("Withdraw Event")
 					if err := e.afterWithdraw(&vLog); err != nil {
-						fmt.Printf("Withdraw event err: %v", err)
+						log.Printf("Withdraw event err: %v", err)
 					}
 				}
 			}
