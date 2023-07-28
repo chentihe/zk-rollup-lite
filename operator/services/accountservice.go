@@ -20,13 +20,15 @@ func (service *AccountService) GetAccountByIndex(index int64) (accountDto *model
 	if err != nil {
 		return nil, err
 	}
+	return account.ToDto()
+}
 
-	accountDto, err = account.ToDto()
+func (service *AccountService) GetAccountByPublickKey(comp string) (accountDto *models.AccountDto, err error) {
+	account, err := service.AccountDao.GetAccountByPublicKey(comp)
 	if err != nil {
 		return nil, err
 	}
-
-	return accountDto, nil
+	return account.ToDto()
 }
 
 func (service *AccountService) GetCurrentAccountIndex() (amount int64, err error) {

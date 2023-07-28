@@ -14,7 +14,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iden3/go-merkletree-sql/v2"
 )
 
 type TransactionService struct {
@@ -45,13 +44,7 @@ func NewTransactionService(accountService *AccountService, tree *tree.AccountTre
 func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error {
 	circuitPath := service.circuitPath + "/deposit"
 
-	depositInputs := &circuits.DepositInputs{
-		DepositAmount: deposit.DepositAmount,
-	}
-
-	var mtProof *merkletree.CircomProcessorProof
-
-	accountDto, err := service.accountService.GetAccountByIndex(deposit.AccountIndex)
+	accountDto, err := service.accountService.GetAccountByPublickKey(deposit.PublicKey)
 	// add account into db & merkle tree if it's new account
 	// event hanlder will update the rest info once the tx is on-chain
 	if err == daos.ErrAccountNotFound {
@@ -63,45 +56,21 @@ func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error
 		accountDto = &models.AccountDto{
 			AccountIndex: userIndex,
 			PublicKey:    deposit.PublicKey,
-			Balance:      big.NewInt(0),
+			Balance:      deposit.DepositAmount,
 			Nonce:        0,
 		}
 
 		if err := service.accountService.CreateAccount(accountDto); err != nil {
 			return err
 		}
-
-		leaf, err := tree.GenerateAccountLeaf(accountDto)
-		if err != nil {
-			return err
-		}
-
-		mtProof, err = service.accountTree.AddAndGetCircomProof(userIndex, leaf)
-		if err != nil {
-			return err
-		}
 	} else {
-		// mock update to get the circuit processor proof
-		mtProof, err = service.accountTree.UpdateAccountTree(accountDto)
-		if err != nil {
+		accountDto.Balance = new(big.Int).Add(accountDto.Balance, deposit.DepositAmount)
+		if err := service.accountService.UpdateAccount(accountDto); err != nil {
 			return err
 		}
 	}
 
-	depositInputs.Account = accountDto
-	depositInputs.MTProof = mtProof
-
-	circuitInput, err := depositInputs.InputsMarshal()
-	if err != nil {
-		return err
-	}
-
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
-	if err != nil {
-		return err
-	}
-
-	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
+	if err = circuits.VerifierGroth16(deposit.ZkProof, circuitPath); err != nil {
 		return err
 	}
 
@@ -116,38 +85,7 @@ func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) er
 		return err
 	}
 
-	withdrawInputs := &circuits.WithdrawInputs{
-		Root:           service.accountTree.GetRoot(),
-		Nullifier:      withdraw.Nullifier,
-		Signature:      withdraw.Signature,
-		WithdrawAmount: withdraw.WithdrawAmount,
-	}
-
-	account, err := service.accountService.GetAccountByIndex(withdraw.AccountIndex)
-	if err != nil {
-		return err
-	}
-
-	// mock update to get the circuit processor proof
-	mtProof, err := service.accountTree.UpdateAccountTree(account)
-	if err != nil {
-		return err
-	}
-
-	withdrawInputs.Account = account
-	withdrawInputs.MTProof = mtProof
-
-	circuitInput, err := withdrawInputs.InputsMarshal()
-	if err != nil {
-		return err
-	}
-
-	proof, err := circuits.GenerateGroth16Proof(circuitInput, circuitPath)
-	if err != nil {
-		return err
-	}
-
-	if err = circuits.VerifierGroth16(proof, circuitPath); err != nil {
+	if err := circuits.VerifierGroth16(withdraw.ZkProof, circuitPath); err != nil {
 		return err
 	}
 
@@ -202,7 +140,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return math.MaxInt64, err
 	}
 
-	if _, err := service.accountTree.UpdateAccountTree(fromAccount); err != nil {
+	if _, err := service.accountTree.UpdateAccount(fromAccount); err != nil {
 		return math.MaxInt64, err
 	}
 
@@ -221,7 +159,7 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return math.MaxInt64, err
 	}
 
-	if _, err := service.accountTree.UpdateAccountTree(toAccount); err != nil {
+	if _, err := service.accountTree.UpdateAccount(toAccount); err != nil {
 		return math.MaxInt64, err
 	}
 

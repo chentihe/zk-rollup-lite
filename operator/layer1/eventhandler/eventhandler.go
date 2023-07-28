@@ -99,7 +99,7 @@ func (e *EventHandler) afterWithdraw(vLog *types.Log) error {
 		return err
 	}
 
-	if _, err := e.accountTree.UpdateAccountTree(account); err != nil {
+	if _, err := e.accountTree.UpdateAccount(account); err != nil {
 		return err
 	}
 
@@ -142,28 +142,17 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 			return err
 		}
 
-		accountLeaf, err := tree.GenerateAccountLeaf(accountDto)
-		if err != nil {
-			return err
-		}
-
-		if err := e.accountTree.Add(user.Index.Int64(), accountLeaf); err != nil {
+		if _, err := e.accountTree.AddAccount(accountDto); err != nil {
 			return err
 		}
 	case daos.ErrSqlOperation:
 		return err
 	default:
-		accountDto.Balance = user.Balance
-		accountDto.Nonce = user.Nonce.Int64()
 		accountDto.L1Address = sender.Hex()
-
 		if err := e.accountService.UpdateAccount(accountDto); err != nil {
 			return err
 		}
-
-		if _, err := e.accountTree.UpdateAccountTree(accountDto); err != nil {
-			return err
-		}
+		log.Printf("Deposit account: %#v\n", accountDto)
 	}
 
 	return nil

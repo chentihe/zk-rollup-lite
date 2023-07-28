@@ -5,6 +5,7 @@ import (
 
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/iden3/go-iden3-crypto/babyjub"
+	"github.com/iden3/go-rapidsnark/types"
 )
 
 type WithdrawInfo struct {
@@ -14,6 +15,7 @@ type WithdrawInfo struct {
 	Signature      *babyjub.Signature
 	WithdrawAmount *big.Int
 	SignedTxHash   string
+	ZkProof        *types.ZKProof
 }
 
 func (w *WithdrawInfo) VerifySignature() error {

@@ -75,20 +75,20 @@ func (signer *Signer) GetAuth() (*bind.TransactOpts, error) {
 }
 
 func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	chainId, err := signer.ethClient.ChainID(signer.Context)
-	if err != nil {
-		return nil, err
-	}
+	// chainId, err := signer.ethClient.ChainID(signer.Context)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
-	if err != nil {
-		return nil, err
-	}
+	// tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
 	if err != nil {
 		return nil, err
@@ -107,16 +107,26 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 	}
 
 	tx := types.NewTx(
-		&types.DynamicFeeTx{
-			ChainID:   chainId,
-			Nonce:     nonce,
-			GasTipCap: tipCap,
-			GasFeeCap: feeCap,
-			Gas:       gasLimit,
-			To:        to,
-			Value:     value,
-			Data:      data,
+		&types.LegacyTx{
+			Nonce:    nonce,
+			GasPrice: feeCap,
+			Gas:      gasLimit,
+			To:       to,
+			Value:    value,
+			Data:     data,
 		})
+
+	// tx := types.NewTx(
+	// 	&types.DynamicFeeTx{
+	// 		ChainID:   chainId,
+	// 		Nonce:     nonce,
+	// 		GasTipCap: tipCap,
+	// 		GasFeeCap: feeCap,
+	// 		Gas:       gasLimit,
+	// 		To:        to,
+	// 		Value:     value,
+	// 		Data:      data,
+	// 	})
 
 	return tx, nil
 }

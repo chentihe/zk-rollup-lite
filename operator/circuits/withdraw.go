@@ -17,7 +17,6 @@ type WithdrawInputs struct {
 	Account        *models.AccountDto
 	Nullifier      *big.Int
 	Signature      *babyjub.Signature
-	Root           *merkletree.Hash
 	WithdrawAmount *big.Int
 	MTProof        *merkletree.CircomProcessorProof
 }
@@ -26,26 +25,28 @@ type withdrawCircuitInputs struct {
 	PublicKey       [2]string
 	Signature       [3]string
 	Nullifier       string
-	BalanceTreeRoot string
+	BalanceTreeRoot *merkletree.Hash
 	Balance         string
 	Nonce           string
-	PathElements    [6]string
-	OldKey          string
-	OldValue        string
+	PathElements    [6]*merkletree.Hash
+	OldKey          *merkletree.Hash
+	OldValue        *merkletree.Hash
 	IsOld0          string
-	NewKey          string
+	NewKey          *merkletree.Hash
 	Func            [2]string
 }
 
 func (w *WithdrawInputs) InputsMarshal() ([]byte, error) {
 	circuitInputs := &withdrawCircuitInputs{
 		Nullifier:       w.Nullifier.String(),
-		BalanceTreeRoot: w.Root.String(),
+		BalanceTreeRoot: w.MTProof.OldRoot,
 		Balance:         w.Account.Balance.String(),
 		Nonce:           strconv.Itoa(int(w.Account.Nonce)),
-		OldKey:          w.MTProof.OldKey.String(),
-		OldValue:        w.MTProof.OldValue.String(),
-		NewKey:          w.MTProof.NewKey.String(),
+		PathElements:    ([6]*merkletree.Hash)(w.MTProof.Siblings),
+		OldKey:          w.MTProof.OldKey,
+		OldValue:        w.MTProof.OldValue,
+		IsOld0:          "0",
+		NewKey:          w.MTProof.NewKey,
 	}
 
 	signature := [3]string{w.Signature.R8.X.String(), w.Signature.R8.Y.String(), w.Signature.S.String()}
@@ -57,21 +58,12 @@ func (w *WithdrawInputs) InputsMarshal() ([]byte, error) {
 	}
 	circuitInputs.PublicKey = *publicKey
 
-	circuitInputs.PathElements = tree.StringifyPath(w.MTProof.Siblings)
-
-	if w.MTProof.IsOld0 {
-		circuitInputs.IsOld0 = "1"
-	} else {
-		circuitInputs.IsOld0 = "0"
-	}
-
+	// withdraw only update mt
 	var op [2]string
 	switch w.MTProof.Fnc {
-	case INSERT:
-		op = [2]string{"1", "0"}
 	case UPDATE:
 		op = [2]string{"0", "1"}
-	case NOP, DELETE:
+	case INSERT, NOP, DELETE:
 		return nil, fmt.Errorf("Should not indicate these functions")
 	default:
 		return nil, fmt.Errorf("Invalid function")

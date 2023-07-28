@@ -84,12 +84,14 @@ type Circuit struct {
 	Path string `mapstructure:"path"`
 }
 
-func LoadConfig(paths ...string) (config *Config, err error) {
+func LoadConfig(node string, paths ...string) (config *Config, err error) {
 	for _, path := range paths {
 		viper.AddConfigPath(path)
 	}
+
+	yamlFileName := fmt.Sprintf("env.example.%s", node)
 	viper.SetConfigType("yaml")
-	viper.SetConfigName("env.example")
+	viper.SetConfigName(yamlFileName)
 
 	viper.AutomaticEnv()
 

@@ -22,13 +22,6 @@ import (
 func main() {
 	context := context.Background()
 
-	config, err := config.LoadConfig("../config", "./config")
-	if err != nil {
-		panic(err)
-	}
-
-	svc := servicecontext.NewServiceContext(context, config)
-
 	app := &cli.App{
 		Name:        "Zk Rollup Lite",
 		Description: "Simple zk rollup implementation",
@@ -39,8 +32,15 @@ func main() {
 				Flags: []cli.Flag{
 					flags.DepositAmountFlag,
 					flags.AccountIndexFlag,
+					flags.NodeFlag,
 				},
 				Action: func(ctx *cli.Context) error {
+					node := ctx.String(flags.NodeFlag.Name)
+					config, err := config.LoadConfig(node, "../config", "./config")
+					if err != nil {
+						panic(err)
+					}
+					svc := servicecontext.NewServiceContext(context, config)
 					return zkCli.Deposit(ctx, context, config, svc)
 				},
 			},
@@ -50,8 +50,15 @@ func main() {
 				Flags: []cli.Flag{
 					flags.WithdrawAmountFlag,
 					flags.AccountIndexFlag,
+					flags.NodeFlag,
 				},
 				Action: func(ctx *cli.Context) error {
+					node := ctx.String(flags.NodeFlag.Name)
+					config, err := config.LoadConfig(node, "../config", "./config")
+					if err != nil {
+						panic(err)
+					}
+					svc := servicecontext.NewServiceContext(context, config)
 					return zkCli.Withdraw(ctx, context, config, svc)
 				},
 			},
@@ -60,15 +67,31 @@ func main() {
 				Usage: "Delete the node from the merkle tree",
 				Flags: []cli.Flag{
 					flags.AccountIndexFlag,
+					flags.NodeFlag,
 				},
 				Action: func(ctx *cli.Context) error {
+					node := ctx.String(flags.NodeFlag.Name)
+					config, err := config.LoadConfig(node, "../config", "./config")
+					if err != nil {
+						panic(err)
+					}
+					svc := servicecontext.NewServiceContext(context, config)
 					return zkCli.DeleteNode(ctx, svc)
 				},
 			},
 			{
 				Name:  "startapp",
 				Usage: "Start the layer2 app",
+				Flags: []cli.Flag{
+					flags.NodeFlag,
+				},
 				Action: func(ctx *cli.Context) error {
+					node := ctx.String(flags.NodeFlag.Name)
+					config, err := config.LoadConfig(node, "../config", "./config")
+					if err != nil {
+						panic(err)
+					}
+					svc := servicecontext.NewServiceContext(context, config)
 					return StartServer(context, config, svc)
 				},
 			},

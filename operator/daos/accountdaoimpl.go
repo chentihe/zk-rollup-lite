@@ -42,9 +42,7 @@ func (dao *AccountDaoImpl) GetAccountByPublicKey(comp string) (account *models.A
 	dbTx := dao.DB.
 		Where("public_key = ?", comp).
 		First(&account)
-	if dbTx.Error != nil {
-		return nil, ErrSqlOperation
-	} else if dbTx.RowsAffected == 0 {
+	if dbTx.RowsAffected == 0 {
 		return nil, ErrAccountNotFound
 	}
 
@@ -60,7 +58,7 @@ func (dao *AccountDaoImpl) GetCurrentAccountIndex() (amount int64, err error) {
 		return 0, ErrAccountNotFound
 	}
 
-	return count, nil
+	return count + 1, nil
 }
 
 func (dao *AccountDaoImpl) CreateAccount(account *models.Account) (err error) {

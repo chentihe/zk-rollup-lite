@@ -16,7 +16,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
-	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iden3/go-merkletree-sql/v2"
@@ -46,9 +45,9 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 	var mtProof *merkletree.CircomProcessorProof
 
-	accountDto, err := svc.AccountService.GetAccountByIndex(accountIndex)
+	comp := user.PublicKey.String()
 
-	// TODO: will occur err if the account exists
+	accountDto, err := svc.AccountService.GetAccountByPublickKey(comp)
 	if err == daos.ErrAccountNotFound {
 		userIndex, err := svc.AccountService.GetCurrentAccountIndex()
 		if err != nil {
@@ -57,28 +56,20 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 		accountDto = &models.AccountDto{
 			AccountIndex: userIndex,
-			PublicKey:    user.PublicKey.String(),
-			Balance:      big.NewInt(0),
+			PublicKey:    comp,
+			Balance:      depositAmount,
 			Nonce:        0,
 		}
 
-		if err := svc.AccountService.CreateAccount(accountDto); err != nil {
-			return err
-		}
-
-		leaf, err := tree.GenerateAccountLeaf(accountDto)
-		if err != nil {
-			return err
-		}
-
-		mtProof, err = svc.AccountTree.AddAndGetCircomProof(userIndex, leaf)
+		mtProof, err = svc.AccountTree.AddAccount(accountDto)
 		if err != nil {
 			return err
 		}
 	} else {
 		// zkp new root should be the new state root cannot use mock merkle tree proof
 		// mock update to get the circuit processor proof
-		mtProof, err = svc.AccountTree.UpdateAccountTree(accountDto)
+		accountDto.Balance = new(big.Int).Add(accountDto.Balance, depositAmount)
+		mtProof, err = svc.AccountTree.UpdateAccount(accountDto)
 		if err != nil {
 			return err
 		}
@@ -132,6 +123,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		PublicKey:     user.PublicKey.String(),
 		DepositAmount: depositAmount,
 		SignedTxHash:  hex.EncodeToString(rawTxBytes),
+		ZkProof:       proof,
 	}
 
 	requestBody, err := json.Marshal(depositInfo)

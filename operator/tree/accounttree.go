@@ -17,7 +17,7 @@ import (
 const mtDepth = 5
 
 type AccountTree struct {
-	MT      *merkletree.MerkleTree
+	context context.Context
 	PgxPool *pgxpool.Pool
 }
 
@@ -27,27 +27,34 @@ func InitAccountTree(context context.Context, ethClient *ethclient.Client, abi *
 		return nil, err
 	}
 
-	treeStorage := sql.NewSqlStorage(pool, 1)
-
-	mt, err := merkletree.NewMerkleTree(context, treeStorage, mtDepth)
-	if err != nil {
-		return nil, err
-	}
-
 	return &AccountTree{
-		MT:      mt,
+		context: context,
 		PgxPool: pool,
 	}, nil
 }
 
 func (accountTree *AccountTree) RestoreTree() (*merkletree.MerkleTree, error) {
 	treeStroage := sql.NewSqlStorage(accountTree.PgxPool, 1)
-	return merkletree.NewMerkleTree(context.Background(), treeStroage, mtDepth)
+	return merkletree.NewMerkleTree(accountTree.context, treeStroage, mtDepth)
 }
 
-func (accountTree *AccountTree) UpdateAccountTree(accountDto *models.AccountDto) (*merkletree.CircomProcessorProof, error) {
-	context := context.Background()
+func (accountTree *AccountTree) AddAccount(accountDto *models.AccountDto) (proof *merkletree.CircomProcessorProof, err error) {
+	mt, err := accountTree.RestoreTree()
+	if err != nil {
+		return nil, err
+	}
 
+	key := big.NewInt(accountDto.AccountIndex)
+
+	leaf, err := GenerateAccountLeaf(accountDto)
+	if err != nil {
+		return nil, err
+	}
+
+	return mt.AddAndGetCircomProof(accountTree.context, key, leaf)
+}
+
+func (accountTree *AccountTree) UpdateAccount(accountDto *models.AccountDto) (*merkletree.CircomProcessorProof, error) {
 	mt, err := accountTree.RestoreTree()
 	if err != nil {
 		return nil, err
@@ -58,7 +65,7 @@ func (accountTree *AccountTree) UpdateAccountTree(accountDto *models.AccountDto)
 		return nil, err
 	}
 
-	proof, err := mt.Update(context, big.NewInt(accountDto.AccountIndex), leaf)
+	proof, err := mt.Update(accountTree.context, big.NewInt(accountDto.AccountIndex), leaf)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +74,14 @@ func (accountTree *AccountTree) UpdateAccountTree(accountDto *models.AccountDto)
 }
 
 func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]*merkletree.Hash, error) {
-	context := context.Background()
-
 	index := account.AccountIndex
 
-	_, _, siblings, err := accountTree.MT.Get(context, big.NewInt(index))
+	mt, err := accountTree.RestoreTree()
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, siblings, err := mt.Get(accountTree.context, big.NewInt(index))
 	if err != nil {
 		return nil, err
 	}
@@ -83,28 +93,11 @@ func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]
 }
 
 func (accountTree *AccountTree) GetRoot() *merkletree.Hash {
-	return accountTree.MT.Root()
-}
-
-func (accountTree *AccountTree) Add(key int64, value *big.Int) error {
-	context := context.Background()
-	return accountTree.MT.Add(context, big.NewInt(key), value)
-}
-
-func (accountTree *AccountTree) AddAndGetCircomProof(key int64, value *big.Int) (proof *merkletree.CircomProcessorProof, err error) {
-	context := context.Background()
-
-	mt, err := accountTree.RestoreTree()
-	if err != nil {
-		return nil, err
-	}
-
-	return mt.AddAndGetCircomProof(context, big.NewInt(key), value)
+	mt, _ := accountTree.RestoreTree()
+	return mt.Root()
 }
 
 func (accountTree *AccountTree) Delete(key int64) error {
-	context := context.Background()
-
 	mt, err := accountTree.RestoreTree()
 	if err != nil {
 		return err
@@ -115,20 +108,9 @@ func (accountTree *AccountTree) Delete(key int64) error {
 		return err
 	}
 
-	if _, err = mt.DumpLeafs(context, hashKey); err != nil {
+	if _, err = mt.DumpLeafs(accountTree.context, hashKey); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (accountTree *AccountTree) GenerateProof(key *big.Int) (proof *merkletree.CircomVerifierProof, err error) {
-	context := context.Background()
-	root := accountTree.GetRoot()
-	proof, err = accountTree.MT.GenerateCircomVerifierProof(context, key, root)
-	if err != nil {
-		return nil, err
-	}
-
-	return proof, nil
 }

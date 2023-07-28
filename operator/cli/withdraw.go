@@ -16,7 +16,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
-	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iden3/go-merkletree-sql/v2"
@@ -68,18 +67,13 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 			Nonce:        0,
 		}
 
-		leaf, err := tree.GenerateAccountLeaf(accountDto)
-		if err != nil {
-			return err
-		}
-
-		mtProof, err = svc.AccountTree.AddAndGetCircomProof(userIndex, leaf)
+		mtProof, err = svc.AccountTree.AddAccount(accountDto)
 		if err != nil {
 			return err
 		}
 	} else {
 		// mock update to get the circuit processor proof
-		mtProof, err = svc.AccountTree.UpdateAccountTree(accountDto)
+		mtProof, err = svc.AccountTree.UpdateAccount(accountDto)
 		if err != nil {
 			return err
 		}

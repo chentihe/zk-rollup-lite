@@ -19,26 +19,25 @@ type DepositInputs struct {
 }
 
 type depositCircuitInputs struct {
-	BalanceTreeRoot string    `json:"balanceTreeRoot"`
-	PublicKey       [2]string `json:"publicKey"`
-	Balance         string    `json:"balance"`
-	Nonce           string    `json:"nonce"`
-	PathElements    [6]string `json:"pathElements"`
-	OldKey          string    `json:"oldKey"`
-	OldValue        string    `json:"oldValue"`
-	IsOld0          string    `json:"isOld0"`
-	NewKey          string    `json:"newKey"`
-	Func            [2]string `json:"func"`
+	BalanceTreeRoot *merkletree.Hash    `json:"balanceTreeRoot"`
+	PublicKey       [2]string           `json:"publicKey"`
+	Balance         string              `json:"balance"`
+	Nonce           string              `json:"nonce"`
+	PathElements    [6]*merkletree.Hash `json:"pathElements"`
+	OldKey          *merkletree.Hash    `json:"oldKey"`
+	OldValue        *merkletree.Hash    `json:"oldValue"`
+	IsOld0          string              `json:"isOld0"`
+	NewKey          *merkletree.Hash    `json:"newKey"`
+	Func            [2]string           `json:"func"`
 }
 
 func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 	circuitInputs := &depositCircuitInputs{
-		BalanceTreeRoot: d.MTProof.OldRoot.BigInt().String(),
+		BalanceTreeRoot: d.MTProof.OldRoot,
 		Balance:         d.Account.Balance.String(),
 		Nonce:           strconv.Itoa(int(d.Account.Nonce)),
-		OldKey:          d.MTProof.OldKey.BigInt().String(),
-		OldValue:        d.MTProof.OldValue.BigInt().String(),
-		NewKey:          d.MTProof.NewKey.BigInt().String(),
+		NewKey:          d.MTProof.NewKey,
+		PathElements:    ([6]*merkletree.Hash)(d.MTProof.Siblings),
 	}
 
 	publicKey, err := tree.StringifyPublicKey(d.Account.PublicKey)
@@ -47,12 +46,14 @@ func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 	}
 	circuitInputs.PublicKey = *publicKey
 
-	circuitInputs.PathElements = tree.StringifyPath(d.MTProof.Siblings)
-
 	if d.MTProof.IsOld0 {
 		circuitInputs.IsOld0 = "1"
+		circuitInputs.OldKey = &merkletree.HashZero
+		circuitInputs.OldValue = &merkletree.HashZero
 	} else {
 		circuitInputs.IsOld0 = "0"
+		circuitInputs.OldKey = d.MTProof.OldKey
+		circuitInputs.OldValue = d.MTProof.OldValue
 	}
 
 	var op [2]string
@@ -62,7 +63,7 @@ func (d *DepositInputs) InputsMarshal() ([]byte, error) {
 	case UPDATE:
 		op = [2]string{"0", "1"}
 	case NOP, DELETE:
-		return nil, fmt.Errorf("Should not indicate these function")
+		return nil, fmt.Errorf("Should not indicate these functions")
 	default:
 		return nil, fmt.Errorf("Invalid function")
 	}
