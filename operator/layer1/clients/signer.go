@@ -18,7 +18,7 @@ type Signer struct {
 	PublicKey  *ecdsa.PublicKey
 	Address    common.Address
 	ethClient  *ethclient.Client
-	Signer     types.Signer
+	ChainId    *big.Int
 	Context    context.Context
 }
 
@@ -46,7 +46,7 @@ func NewSigner(context context.Context, priv string, ethClient *ethclient.Client
 		PublicKey:  publicKeyECDSA,
 		Address:    signerAddress,
 		ethClient:  ethClient,
-		Signer:     types.NewLondonSigner(chainId),
+		ChainId:    chainId,
 		Context:    context,
 	}, nil
 }
@@ -68,27 +68,60 @@ func (signer *Signer) GetAuth() (*bind.TransactOpts, error) {
 	}
 
 	auth.Value = big.NewInt(0)
-	// auth.GasLimit = uint64(800000)
 	auth.GasPrice = gasPrice
 
 	return auth, nil
 }
 
-func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	// chainId, err := signer.ethClient.ChainID(signer.Context)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
+func (signer *Signer) GenerateLegacyTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
 	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	// tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
+	if err != nil {
+		return nil, err
+	}
+
+	callMsg := ethereum.CallMsg{
+		From: signer.Address,
+		To:   to,
+		Data: data,
+	}
+
+	if value != nil {
+		callMsg.Value = value
+	}
+
+	gasLimit, err := signer.ethClient.EstimateGas(signer.Context, callMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := types.NewTx(
+		&types.LegacyTx{
+			Nonce:    nonce,
+			GasPrice: feeCap,
+			Gas:      gasLimit,
+			To:       to,
+			Value:    value,
+			Data:     data,
+		})
+
+	return tx, nil
+}
+
+func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
+	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
+	if err != nil {
+		return nil, err
+	}
 	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
 	if err != nil {
 		return nil, err
@@ -107,30 +140,20 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 	}
 
 	tx := types.NewTx(
-		&types.LegacyTx{
-			Nonce:    nonce,
-			GasPrice: feeCap,
-			Gas:      gasLimit,
-			To:       to,
-			Value:    value,
-			Data:     data,
+		&types.DynamicFeeTx{
+			ChainID:   signer.ChainId,
+			Nonce:     nonce,
+			GasTipCap: tipCap,
+			GasFeeCap: feeCap,
+			Gas:       gasLimit,
+			To:        to,
+			Value:     value,
+			Data:      data,
 		})
-
-	// tx := types.NewTx(
-	// 	&types.DynamicFeeTx{
-	// 		ChainID:   chainId,
-	// 		Nonce:     nonce,
-	// 		GasTipCap: tipCap,
-	// 		GasFeeCap: feeCap,
-	// 		Gas:       gasLimit,
-	// 		To:        to,
-	// 		Value:     value,
-	// 		Data:      data,
-	// 	})
 
 	return tx, nil
 }
 
 func (signer *Signer) SignTx(tx *types.Transaction) (*types.Transaction, error) {
-	return types.SignTx(tx, signer.Signer, signer.privateKey)
+	return types.SignTx(tx, types.NewLondonSigner(signer.ChainId), signer.privateKey)
 }

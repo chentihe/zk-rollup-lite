@@ -31,7 +31,6 @@ type ServiceContext struct {
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
 	rollupPubSub          pubsubs.Subscriber
-	txPubSub              pubsubs.Subscriber
 	eventHandler          *eventhandler.EventHandler
 }
 
@@ -80,10 +79,9 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 
 	transctionService := services.NewTransactionService(accountService, accountTree, redis, signer, &contractAbi, context, config.Circuit.Path, &config.Redis.Keys)
 
-	txPubSub := pubsubs.NewTxPubSub(context, redis, ethClient, config.Redis.Channels.SendTxCh)
 	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, config.Redis.Channels.RollupCh, context, config.SmartContract.Address, config.Circuit.Path, &config.Redis)
 
-	tracsactionController := controllers.NewTransactionController(transctionService, &txPubSub)
+	transactionController := controllers.NewTransactionController(transctionService, &rollupPubSub)
 
 	return &ServiceContext{
 		PostgresDB:            db,
@@ -93,9 +91,8 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		Abi:                   &contractAbi,
 		AccountService:        accountService,
 		AccountController:     accountController,
-		TransactionController: tracsactionController,
+		TransactionController: transactionController,
 		rollupPubSub:          rollupPubSub,
-		txPubSub:              txPubSub,
 		eventHandler:          eventHandler,
 	}
 }
@@ -103,5 +100,4 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 func (svc *ServiceContext) StartDaemon() {
 	svc.eventHandler.Listening()
 	svc.rollupPubSub.Receive()
-	svc.txPubSub.Receive()
 }

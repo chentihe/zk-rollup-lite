@@ -3,7 +3,6 @@ pragma solidity >0.8.0 <=0.9;
 
 import {TxVerifier} from "./verifiers/TxVerifier.sol";
 import {WithdrawVerifier} from "./verifiers/WithdrawVerifier.sol";
-import {DepositVerifier} from "./verifiers/DepositVerifier.sol";
 
 import {Constants} from "./Constants.sol";
 import {Errors} from "./Errors.sol";
@@ -11,7 +10,6 @@ import {Errors} from "./Errors.sol";
 contract Rollup {
     uint256 private constant _NOT_ENTERED = 1;
     uint256 private constant _ENTERED = 2;
-
     uint256 private _status;
 
     address owner;
@@ -20,12 +18,9 @@ contract Rollup {
 
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
-    DepositVerifier depositVerifier;
     
     event Deposit(User user);
-
     event Withdraw(User user);
-
     event RollUp(uint256 newBalanceTreeRoot);
 
     struct User {
@@ -41,14 +36,15 @@ contract Rollup {
     mapping(uint256 => bool) public isPublicKeysRegistered;
     mapping(uint256 => bool) public usedNullifiers;
 
+    uint256 currentUserIndex;
+
     mapping(uint256 => uint256) public balanceTreeKeys;
 
     uint256 accruedFees;
 
-    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier, DepositVerifier _depositVerifier) {
+    constructor(TxVerifier _txVerifier, WithdrawVerifier _withdrawVerifier) {
         txVerifier = _txVerifier;
         withdrawVerifier = _withdrawVerifier;
-        depositVerifier = _depositVerifier;
         _status = _NOT_ENTERED;
         owner = msg.sender;
     }
@@ -125,48 +121,26 @@ contract Rollup {
         balanceTreeRoot = newRoot;
     }
 
-    function deposit(
-        uint256[2] memory a,
-        uint256[2][2] memory b,
-        uint256[2] memory c,
-        uint256[5] memory input
-    ) external payable {
-        if (!depositVerifier.verifyProof(a, b, c, input)) {
-            revert Errors.INVALID_DEPOSIT_PROOFS();
-        }
-
+    function deposit(uint256 publicKeyX, uint256 publicKeyY) external payable {
         if (msg.value == 0) {
             revert Errors.INVALID_VALUE();
         }
 
-        // public signals: [newRoot, root, publicKey, index]
-        uint256 newRoot = input[0];
-        uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
-        uint256 index = input[4];
-
-        if (root != balanceTreeRoot) {
-            revert Errors.INVALID_MERKLE_TREE();
-        }
-
         uint256 publicKeyHash = _generateKeyHash(publicKeyX, publicKeyY);
         User storage user = balanceTreeUsers[publicKeyHash];
-        
-        // zkp is valid, just update balance
         user.balance += msg.value;
 
         if (!isPublicKeysRegistered[publicKeyHash]) {
             isPublicKeysRegistered[publicKeyHash] = true;
 
-            user.index = index;
+            // index 0 of mt is reserved
+            currentUserIndex++;
+            user.index = currentUserIndex;
             user.publicKeyX = publicKeyX;
             user.publicKeyY = publicKeyY;
 
-            balanceTreeKeys[index] = publicKeyHash;
+            balanceTreeKeys[currentUserIndex] = publicKeyHash;
         }
-
-        balanceTreeRoot = newRoot;
 
         emit Deposit(user);
     }
@@ -177,21 +151,15 @@ contract Rollup {
         uint256[2] memory a,
         uint256[2][2] memory b,
         uint256[2] memory c,
-        uint256[5] memory input
+        uint256[3] memory input
     ) external nonReentrant {
         if (!withdrawVerifier.verifyProof(a, b, c, input)) {
             revert Errors.INVALID_WITHDRAW_PROOFS();
         }
 
-        uint256 newRoot = input[0];
-        uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
-        uint256 nullifier = input[4];
-
-        if (balanceTreeRoot != root) {
-            revert Errors.INVALID_MERKLE_TREE();
-        }
+        uint256 nullifier = input[0];
+        uint256 publicKeyX = input[1];
+        uint256 publicKeyY = input[2];
 
         if (usedNullifiers[nullifier]) {
             revert Errors.INVALID_NULLIFIER();
@@ -207,15 +175,12 @@ contract Rollup {
         }
 
         usedNullifiers[nullifier] = true;
-        
         user.balance -= amount;
 
         (bool success,) = msg.sender.call{value: amount}("");
         if (!success) {
             revert Errors.WITHDRAWAL_FAILED();
         } 
-
-        balanceTreeRoot = newRoot;
 
         emit Withdraw(user);
     }

@@ -86,22 +86,24 @@ func (e *EventHandler) afterWithdraw(vLog *types.Log) error {
 	}
 
 	user := withdraw.User
-
-	account, err := e.accountService.GetAccountByIndex(user.Index.Int64())
+	// user must be found in the db
+	accountDto, err := e.accountService.GetAccountByIndex(user.Index.Int64())
 	if err != nil {
 		return err
 	}
 
-	account.Balance = user.Balance
-	account.Nonce = user.Nonce.Int64()
+	accountDto.Balance = user.Balance
+	accountDto.Nonce = user.Nonce.Int64()
 
-	if err := e.accountService.UpdateAccount(account); err != nil {
+	if err := e.accountService.UpdateAccount(accountDto); err != nil {
 		return err
 	}
 
-	if _, err := e.accountTree.UpdateAccount(account); err != nil {
+	if _, err := e.accountTree.UpdateAccount(accountDto); err != nil {
 		return err
 	}
+
+	log.Printf("Withdraw account: %#v\n", accountDto)
 
 	return nil
 }
@@ -113,47 +115,49 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 	}
 
 	user := deposit.User
-
-	publicKey := babyjub.PublicKey(babyjub.Point{X: user.PublicKeyX, Y: user.PublicKeyY})
-
-	tx, _, err := e.ethClient.TransactionByHash(e.context, vLog.TxHash)
-	if err != nil {
-		return err
-	}
-
-	sender, err := types.Sender(types.NewLondonSigner(tx.ChainId()), tx)
-	if err != nil {
-		return err
-	}
-
 	accountDto, err := e.accountService.GetAccountByIndex(user.Index.Int64())
 	switch err {
 	case daos.ErrAccountNotFound:
 		// retrieve sender address from tx
+		tx, _, err := e.ethClient.TransactionByHash(e.context, vLog.TxHash)
+		if err != nil {
+			return err
+		}
+
+		sender, err := types.Sender(types.NewLondonSigner(tx.ChainId()), tx)
+		if err != nil {
+			return err
+		}
+
+		publicKey := babyjub.PublicKey(babyjub.Point{X: user.PublicKeyX, Y: user.PublicKeyY}).String()
+
 		accountDto = &models.AccountDto{
 			AccountIndex: user.Index.Int64(),
-			PublicKey:    publicKey.String(),
+			PublicKey:    publicKey,
 			Balance:      user.Balance,
 			Nonce:        user.Nonce.Int64(),
 			L1Address:    sender.Hex(),
 		}
 
-		if err := e.accountService.CreateAccount(accountDto); err != nil {
+		if err = e.accountService.CreateAccount(accountDto); err != nil {
 			return err
 		}
 
-		if _, err := e.accountTree.AddAccount(accountDto); err != nil {
+		if _, err = e.accountTree.AddAccount(accountDto); err != nil {
 			return err
 		}
-	case daos.ErrSqlOperation:
-		return err
 	default:
-		accountDto.L1Address = sender.Hex()
-		if err := e.accountService.UpdateAccount(accountDto); err != nil {
+		accountDto.Balance = user.Balance
+		accountDto.Nonce = user.Nonce.Int64()
+		if err = e.accountService.UpdateAccount(accountDto); err != nil {
 			return err
 		}
-		log.Printf("Deposit account: %#v\n", accountDto)
+
+		if _, err = e.accountTree.UpdateAccount(accountDto); err != nil {
+			return err
+		}
 	}
+	log.Printf("Deposit account: %#v\n", accountDto)
 
 	return nil
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "compile": "npx tsc --target es6 --esModuleInterop ./*.ts",
-    "generate-zkp-deposit": "node generate_zkp_deposit.js",
+    "generate-public-key": "node generate_public_key.js",
     "generate-zkp-withdraw": "node generate_zkp_withdraw.js",
     "generate-zkp-rollup": "node generate_zkp_rollup.js"
   },

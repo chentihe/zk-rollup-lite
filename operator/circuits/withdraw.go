@@ -2,7 +2,6 @@ package circuits
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"strconv"
 
@@ -18,35 +17,32 @@ type WithdrawInputs struct {
 	Nullifier      *big.Int
 	Signature      *babyjub.Signature
 	WithdrawAmount *big.Int
-	MTProof        *merkletree.CircomProcessorProof
+	MTProof        *merkletree.CircomVerifierProof
 }
 
 type withdrawCircuitInputs struct {
-	PublicKey       [2]string
-	Signature       [3]string
-	Nullifier       string
-	BalanceTreeRoot *merkletree.Hash
-	Balance         string
-	Nonce           string
-	PathElements    [6]*merkletree.Hash
-	OldKey          *merkletree.Hash
-	OldValue        *merkletree.Hash
-	IsOld0          string
-	NewKey          *merkletree.Hash
-	Func            [2]string
+	BalanceTreeRoot *merkletree.Hash    `json:"balanceTreeRoot"`
+	Signature       [3]string           `json:"signature"`
+	Nullifier       string              `json:"nullifier"`
+	PublicKey       [2]string           `json:"publicKey"`
+	Balance         string              `json:"balance"`
+	Nonce           string              `json:"nonce"`
+	PathElements    [6]*merkletree.Hash `json:"pathElements"`
+	OldKey          *merkletree.Hash    `json:"oldKey"`
+	OldValue        *merkletree.Hash    `json:"oldValue"`
+	NewKey          *merkletree.Hash    `json:"newKey"`
 }
 
 func (w *WithdrawInputs) InputsMarshal() ([]byte, error) {
 	circuitInputs := &withdrawCircuitInputs{
+		BalanceTreeRoot: w.MTProof.Root,
 		Nullifier:       w.Nullifier.String(),
-		BalanceTreeRoot: w.MTProof.OldRoot,
 		Balance:         w.Account.Balance.String(),
 		Nonce:           strconv.Itoa(int(w.Account.Nonce)),
 		PathElements:    ([6]*merkletree.Hash)(w.MTProof.Siblings),
 		OldKey:          w.MTProof.OldKey,
 		OldValue:        w.MTProof.OldValue,
-		IsOld0:          "0",
-		NewKey:          w.MTProof.NewKey,
+		NewKey:          w.MTProof.Key,
 	}
 
 	signature := [3]string{w.Signature.R8.X.String(), w.Signature.R8.Y.String(), w.Signature.S.String()}
@@ -58,25 +54,12 @@ func (w *WithdrawInputs) InputsMarshal() ([]byte, error) {
 	}
 	circuitInputs.PublicKey = *publicKey
 
-	// withdraw only update mt
-	var op [2]string
-	switch w.MTProof.Fnc {
-	case UPDATE:
-		op = [2]string{"0", "1"}
-	case INSERT, NOP, DELETE:
-		return nil, fmt.Errorf("Should not indicate these functions")
-	default:
-		return nil, fmt.Errorf("Invalid function")
-	}
-
-	circuitInputs.Func = op
-
 	return json.Marshal(circuitInputs)
 }
 
 type WithdrawOutputs struct {
 	Proof         ProofData
-	PublicSignals [5]*big.Int
+	PublicSignals [3]*big.Int
 }
 
 func (w *WithdrawOutputs) OutputsUnmarshal(proof *types.ZKProof) error {
@@ -85,7 +68,7 @@ func (w *WithdrawOutputs) OutputsUnmarshal(proof *types.ZKProof) error {
 		return err
 	}
 
-	w.PublicSignals = ([5]*big.Int)(inputs)
+	w.PublicSignals = ([3]*big.Int)(inputs)
 	if err = w.Proof.ProofUnmarshal(proof.Proof); err != nil {
 		return err
 	}

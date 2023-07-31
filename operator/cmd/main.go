@@ -30,7 +30,7 @@ func main() {
 				Name:  "deposit",
 				Usage: "Deposit ethers to the rollup contract",
 				Flags: []cli.Flag{
-					flags.DepositAmountFlag,
+					flags.AmountFlag,
 					flags.AccountIndexFlag,
 					flags.NodeFlag,
 				},
@@ -48,7 +48,7 @@ func main() {
 				Name:  "withdraw",
 				Usage: "Withdraw ethers from the rollup contract",
 				Flags: []cli.Flag{
-					flags.WithdrawAmountFlag,
+					flags.AmountFlag,
 					flags.AccountIndexFlag,
 					flags.NodeFlag,
 				},
@@ -60,23 +60,6 @@ func main() {
 					}
 					svc := servicecontext.NewServiceContext(context, config)
 					return zkCli.Withdraw(ctx, context, config, svc)
-				},
-			},
-			{
-				Name:  "delete",
-				Usage: "Delete the node from the merkle tree",
-				Flags: []cli.Flag{
-					flags.AccountIndexFlag,
-					flags.NodeFlag,
-				},
-				Action: func(ctx *cli.Context) error {
-					node := ctx.String(flags.NodeFlag.Name)
-					config, err := config.LoadConfig(node, "../config", "./config")
-					if err != nil {
-						panic(err)
-					}
-					svc := servicecontext.NewServiceContext(context, config)
-					return zkCli.DeleteNode(ctx, svc)
 				},
 			},
 			{

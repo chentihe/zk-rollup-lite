@@ -3,14 +3,11 @@ package services
 import (
 	"context"
 	"math"
-	"math/big"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/config"
-	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
-	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -38,58 +35,6 @@ func NewTransactionService(accountService *AccountService, tree *tree.AccountTre
 		circuitPath:    circuitPath,
 		keys:           keys,
 	}
-}
-
-// only verify the zkp since the signature is signed by user
-func (service *TransactionService) Deposit(deposit *txmanager.DepositInfo) error {
-	circuitPath := service.circuitPath + "/deposit"
-
-	accountDto, err := service.accountService.GetAccountByPublickKey(deposit.PublicKey)
-	// add account into db & merkle tree if it's new account
-	// event hanlder will update the rest info once the tx is on-chain
-	if err == daos.ErrAccountNotFound {
-		userIndex, err := service.accountService.GetCurrentAccountIndex()
-		if err != nil {
-			return err
-		}
-
-		accountDto = &models.AccountDto{
-			AccountIndex: userIndex,
-			PublicKey:    deposit.PublicKey,
-			Balance:      deposit.DepositAmount,
-			Nonce:        0,
-		}
-
-		if err := service.accountService.CreateAccount(accountDto); err != nil {
-			return err
-		}
-	} else {
-		accountDto.Balance = new(big.Int).Add(accountDto.Balance, deposit.DepositAmount)
-		if err := service.accountService.UpdateAccount(accountDto); err != nil {
-			return err
-		}
-	}
-
-	if err = circuits.VerifierGroth16(deposit.ZkProof, circuitPath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// only verify the zkp since the signature is signed by user
-func (service *TransactionService) Withdraw(withdraw *txmanager.WithdrawInfo) error {
-	circuitPath := service.circuitPath + "/withdraw"
-
-	if err := withdraw.VerifySignature(); err != nil {
-		return err
-	}
-
-	if err := circuits.VerifierGroth16(withdraw.ZkProof, circuitPath); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) (int64, error) {

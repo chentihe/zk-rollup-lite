@@ -7,6 +7,4 @@ import (
 
 func AddTransactionRoutes(v1 *gin.RouterGroup, transactionController *controllers.TransactionController) {
 	v1.POST("/send", transactionController.SendTransaction)
-	v1.POST("/withdraw", transactionController.Withdraw)
-	v1.POST("/deposit", transactionController.Deposit)
 }

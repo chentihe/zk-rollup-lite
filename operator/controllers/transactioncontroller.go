@@ -39,35 +39,3 @@ func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 
 	ctx.IndentedJSON(http.StatusOK, "tx finished")
 }
-
-func (c *TransactionController) Deposit(ctx *gin.Context) {
-	var deposit *txmanager.DepositInfo
-	if err := ctx.ShouldBindJSON(&deposit); err != nil {
-		panic(err)
-	}
-
-	err := c.TransactionService.Deposit(deposit)
-	if err != nil {
-		panic(err)
-	}
-
-	c.TransactionPubSub.Publish(deposit.SignedTxHash)
-
-	ctx.IndentedJSON(http.StatusOK, "deposit finished")
-}
-
-func (c *TransactionController) Withdraw(ctx *gin.Context) {
-	var withdraw *txmanager.WithdrawInfo
-	if err := ctx.ShouldBindJSON(&withdraw); err != nil {
-		panic(err)
-	}
-
-	err := c.TransactionService.Withdraw(withdraw)
-	if err != nil {
-		panic(err)
-	}
-
-	c.TransactionPubSub.Publish(withdraw.SignedTxHash)
-
-	ctx.IndentedJSON(http.StatusOK, "withdraw finished")
-}

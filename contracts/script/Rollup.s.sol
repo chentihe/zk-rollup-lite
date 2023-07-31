@@ -10,11 +10,10 @@ import {WithdrawVerifier} from "../src/verifiers/WithdrawVerifier.sol";
 contract RollupScript is Script {
     function run() public {
         vm.startBroadcast();
-        DepositVerifier depositVerifier = new DepositVerifier();
         TxVerifier txVerifier = new TxVerifier();
         WithdrawVerifier withdrawVerifier = new WithdrawVerifier();
 
-        new Rollup(txVerifier, withdrawVerifier, depositVerifier);
+        new Rollup(txVerifier, withdrawVerifier);
         vm.stopBroadcast();
     }
 }

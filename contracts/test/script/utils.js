@@ -31,8 +31,8 @@ const generateUser = (index) => {
 }
 
 const generateTransaction = (leaves, users) => {
-    const sender = users[0]
-    const recipient = users[1]
+    const sender = users[1]
+    const recipient = users[2]
     const amount = BigInt(1e18)
     const fee = BigInt(0.5e18)
     const senderNonce = leaves[sender.index].nonce

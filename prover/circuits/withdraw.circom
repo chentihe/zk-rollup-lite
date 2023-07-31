@@ -3,38 +3,37 @@ pragma circom  2.1.5;
 include "../node_modules/circomlib/circuits/eddsamimc.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/comparators.circom";
-include "../node_modules/circomlib/circuits/smt/smtprocessor.circom";
+include "../node_modules/circomlib/circuits/smt/smtverifier.circom";
 
 template Withdraw(depth) {
-    signal input publicKey[2];
+    signal input balanceTreeRoot;
     signal input signature[3];
     signal input nullifier;
 
-    signal input balanceTreeRoot;
-    signal output newBalanceTreeRoot;
-
     // [public_key_x, public_key_y, balance, nonce]
     var BALANCE_TREE_LEAF_DATA_LENGTH = 4;
-
-    // The balance is the amount after withdrawal
+    signal input publicKey[2];
     signal input balance;
     signal input nonce;
+
     signal input pathElements[depth];
     signal input oldKey;
     signal input oldValue;
-    signal input isOld0;
     signal input newKey;
 
-    signal input func[2];
+    // only verify the inclusion case
+    signal isOld0 <== 0;
+    signal func <== 0;
+
     var SIGNATURE_R8X_IDX = 0;
     var SIGNATURE_R8Y_IDX = 1;
     var SIGNATURE_S_IDX = 2;
 
-    var ENABLED = 1;
+    signal enabled <== 1;
 
     // 1. Check the signature is valid
     EdDSAMiMCVerifier()(
-        ENABLED, 
+        enabled, 
         publicKey[0], 
         publicKey[1], 
         signature[SIGNATURE_S_IDX], 
@@ -43,17 +42,17 @@ template Withdraw(depth) {
         nullifier
     );
 
-
     // 1 Make sure the balance is valid
     var TRUE = 1;
-    signal isBalanceValid <== GreaterThan(252)([balance, -1]);
+    signal isBalanceValid <== GreaterEqThan(252)([balance, 0]);
     TRUE === isBalanceValid;
 
-    // 2. Process the SMT
+    // 2. Verify the SMT
     signal accountLeaf <== Poseidon(BALANCE_TREE_LEAF_DATA_LENGTH)
         ([publicKey[0], publicKey[1], balance, nonce]);
 
-    newBalanceTreeRoot <== SMTProcessor(depth)(
+    SMTVerifier(depth)(
+        enabled,
         balanceTreeRoot,
         pathElements,
         oldKey,
@@ -65,4 +64,4 @@ template Withdraw(depth) {
     );
 }
 
-component main {public [balanceTreeRoot, publicKey, nullifier]} = Withdraw(6);
+component main {public [publicKey, nullifier]} = Withdraw(6);

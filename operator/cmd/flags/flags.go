@@ -3,19 +3,14 @@ package flags
 import "github.com/urfave/cli/v2"
 
 var (
-	DepositAmountFlag = &cli.StringFlag{
-		Name:    "deposit",
-		Aliases: []string{"d"},
-		Usage:   "the deposit amount",
-	}
-	WithdrawAmountFlag = &cli.StringFlag{
-		Name:    "withdraw",
-		Aliases: []string{"w"},
-		Usage:   "the withdraw amount",
+	AmountFlag = &cli.StringFlag{
+		Name:    "amount",
+		Aliases: []string{"a"},
+		Usage:   "the deposit/withdraw amount",
 	}
 	AccountIndexFlag = &cli.Int64Flag{
 		Name:    "account",
-		Aliases: []string{"a"},
+		Aliases: []string{"i"},
 		Usage:   "the account index",
 	}
 	NodeFlag = &cli.StringFlag{

@@ -9,24 +9,33 @@ const generateZkpRollup = async () => {
 
     // Create mock users
     const users = []
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
         users.push(generateUser(i))
     }
 
     // Create mock leaves
     const balanceTreeLeaves = []
     users.forEach(user => {
-        const leaf = {
-            publicKey: user.publicKey,
-            balance: BigInt(10e18),
-            nonce: 0
+        var leaf
+        if (user.index == 0) {
+            leaf = 0
+        } else {
+            leaf = {
+                publicKey: user.publicKey,
+                balance: BigInt(10e18),
+                nonce: 0
+            }
         }
         balanceTreeLeaves.push(leaf)
     })
 
     // Init merkle tree
     const tree = await smt.newMemEmptyTrie()
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
+        if (i == 0) {
+            await tree.insert(i, 0)
+            continue
+        }
         const leaf = balanceTreeLeaves[i]
         const hashedLeaf =poseidon([leaf.publicKey[0], leaf.publicKey[1], leaf.balance, leaf.nonce])
         await tree.insert(i, hashedLeaf)

@@ -23,7 +23,7 @@ func (service *AccountService) GetAccountByIndex(index int64) (accountDto *model
 	return account.ToDto()
 }
 
-func (service *AccountService) GetAccountByPublickKey(comp string) (accountDto *models.AccountDto, err error) {
+func (service *AccountService) GetAccountByPublicKey(comp string) (accountDto *models.AccountDto, err error) {
 	account, err := service.AccountDao.GetAccountByPublicKey(comp)
 	if err != nil {
 		return nil, err

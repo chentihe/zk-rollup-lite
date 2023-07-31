@@ -92,25 +92,23 @@ func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]
 	return siblings, nil
 }
 
+func (accountTree *AccountTree) GenerateCircomVerifierProof(account *models.AccountDto) (*merkletree.CircomVerifierProof, error) {
+	index := account.AccountIndex
+
+	mt, err := accountTree.RestoreTree()
+	if err != nil {
+		return nil, err
+	}
+
+	proof, err := mt.GenerateCircomVerifierProof(accountTree.context, big.NewInt(index), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return proof, nil
+}
+
 func (accountTree *AccountTree) GetRoot() *merkletree.Hash {
 	mt, _ := accountTree.RestoreTree()
 	return mt.Root()
-}
-
-func (accountTree *AccountTree) Delete(key int64) error {
-	mt, err := accountTree.RestoreTree()
-	if err != nil {
-		return err
-	}
-
-	hashKey, err := merkletree.NewHashFromBigInt(big.NewInt(key))
-	if err != nil {
-		return err
-	}
-
-	if _, err = mt.DumpLeafs(accountTree.context, hashKey); err != nil {
-		return err
-	}
-
-	return nil
 }

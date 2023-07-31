@@ -6,7 +6,6 @@ import {StdStorage, stdStorage} from "forge-std/StdStorage.sol";
 import {Rollup} from "../src/Rollup.sol";
 import {TxVerifier} from "../src/verifiers/TxVerifier.sol";
 import {WithdrawVerifier} from "../src/verifiers/WithdrawVerifier.sol";
-import {DepositVerifier} from "../src/verifiers/DepositVerifier.sol";
 
 contract RollupTest is Test {
     using stdStorage for StdStorage;
@@ -14,14 +13,12 @@ contract RollupTest is Test {
     Rollup rollup;
     TxVerifier txVerifier;
     WithdrawVerifier withdrawVerifier;
-    DepositVerifier depositVerifier;
     uint256 constant DEPTH = 6;
 
     function setUp() public {
         txVerifier = new TxVerifier();
         withdrawVerifier = new WithdrawVerifier();
-        depositVerifier = new DepositVerifier();
-        rollup = new Rollup(txVerifier, withdrawVerifier, depositVerifier);
+        rollup = new Rollup(txVerifier, withdrawVerifier);
     }
 
     function testDeposit() public {
@@ -31,24 +28,18 @@ contract RollupTest is Test {
         runJsInputs[2] = "contracts/test/script/";
         runJsInputs[3] = "--silent";
         runJsInputs[4] = "run";
-        runJsInputs[5] = "generate-zkp-deposit";
+        runJsInputs[5] = "generate-public-key";
         bytes memory jsResult = vm.ffi(runJsInputs);
-        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
+        (uint256[2] memory publicKey) = abi.decode(jsResult, (uint256[2]));
         
-        uint256 newRoot = input[0];
-        uint256 root = input[1];
-        uint256 publicKeyX = input[3];
-        uint256 publicKeyY = input[4];
+        uint256 publicKeyX = publicKey[0];
+        uint256 publicKeyY = publicKey[1];
 
-        assertEq(rollup.balanceTreeRoot(), root);
-
-        rollup.deposit{value: 1 ether}(a, b, c, input);
+        rollup.deposit{value: 1 ether}(publicKeyX, publicKeyY);
 
         uint256 keyHash = rollup.generateKeyHash(publicKeyX, publicKeyY);
         bool isRegistered = rollup.isPublicKeysRegistered(keyHash);
         assertEq(isRegistered, true);
-
-        assertEq(rollup.balanceTreeRoot(), newRoot);
     }
 
     function testWithdraw() public {
@@ -62,40 +53,19 @@ contract RollupTest is Test {
         runJsInputs[6] = "withdraw";
         runJsInputs[7] = "0.5";
         bytes memory jsResult = vm.ffi(runJsInputs);
-        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
+        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[3] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[3]));
 
-        uint256 newRoot = input[0];
-        uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
-        uint256 nullifier = input[4];
+        uint256 nullifier = input[0];
+        uint256 publicKeyX = input[1];
+        uint256 publicKeyY = input[2];
 
-        // setup root
-        stdstore
-            .target(address(rollup))
-            .sig(0xb4e7dddd)
-            .checked_write(root);
-
-        // setup balance
-        stdstore.target(address(rollup))
-            .sig("getUserByPublicKey(uint256,uint256)")
-            .with_key(publicKeyX)
-            .with_key(publicKeyY)
-            .depth(3)
-            .checked_write(1e18);
-
-        // transfer token
-        (bool success, ) = address(rollup).call{value: 1e18}("");
-        require(success, "transfer ether failed");
-
-        assertEq(rollup.balanceTreeRoot(), root);
+        rollup.deposit{value: 1 ether}(publicKeyX, publicKeyY);
 
         uint256 beforeWithdraw = address(this).balance;
         rollup.withdraw(0.5e18, a, b, c, input);
         uint256 afterWithdraw = address(this).balance;
 
         assertEq(afterWithdraw - beforeWithdraw, 0.5e18);
-        assertEq(newRoot, rollup.balanceTreeRoot());
         assertTrue(rollup.usedNullifiers(nullifier));
     }
 
@@ -110,38 +80,19 @@ contract RollupTest is Test {
         runJsInputs[6] = "withdraw-all";
         runJsInputs[7] = "0.5";
         bytes memory jsResult = vm.ffi(runJsInputs);
-        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[5] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[5]));
+        (uint256[2] memory a, uint256[2][2] memory b, uint256[2] memory c, uint256[3] memory input) = abi.decode(jsResult, (uint256[2], uint256[2][2], uint256[2], uint256[3]));
 
-        uint256 newRoot = input[0];
-        uint256 root = input[1];
-        uint256 publicKeyX = input[2];
-        uint256 publicKeyY = input[3];
-        uint256 nullifier = input[4];
+        uint256 nullifier = input[0];
+        uint256 publicKeyX = input[1];
+        uint256 publicKeyY = input[2];
         
-        // setup root
-        stdstore
-            .target(address(rollup))
-            .sig(0xb4e7dddd)
-            .checked_write(root);
-
-        // setup balance
-        stdstore.target(address(rollup))
-            .sig("getUserByPublicKey(uint256,uint256)")
-            .with_key(publicKeyX)
-            .with_key(publicKeyY)
-            .depth(3)
-            .checked_write(1e18);
-
-        // transfer token
-        (bool success, ) = address(rollup).call{value: 1e18}("");
-        require(success, "transfer ether failed");
+        rollup.deposit{value: 1 ether}(publicKeyX, publicKeyY);
 
         uint256 beforeWithdraw = address(this).balance;
         rollup.withdraw(type(uint256).max, a, b, c, input);
         uint256 afterWithdraw = address(this).balance;
 
         assertEq(afterWithdraw - beforeWithdraw, 1e18);
-        assertEq(newRoot, rollup.balanceTreeRoot());
         assertTrue(rollup.usedNullifiers(nullifier));
     }
 
@@ -158,8 +109,6 @@ contract RollupTest is Test {
 
         uint256 newRoot = input[0];
         uint256 root = input[1];
-        uint256 senderIdx = input[3];
-        uint256 recipientIdx = input[4];
         
         // setup root
         stdstore
@@ -167,39 +116,19 @@ contract RollupTest is Test {
             .sig(0xb4e7dddd)
             .checked_write(root);
 
-        // setup mock users
-        uint256 senderKeyHash = rollup.generateKeyHash(senderKey[0], senderKey[1]);
-        uint256 recipientKeyHash = rollup.generateKeyHash(recipientKey[0], recipientKey[1]);
-        stdstore.target(address(rollup))
-            .sig("balanceTreeKeys(uint256)")
-            .with_key(senderIdx)
-            .checked_write(senderKeyHash);
-        stdstore.target(address(rollup))
-            .sig("balanceTreeKeys(uint256)")
-            .with_key(recipientIdx)
-            .checked_write(recipientKeyHash);
-
-        // setup balance
-        stdstore.target(address(rollup))
-            .sig("getUserByIndex(uint256)")
-            .with_key(senderIdx)
-            .depth(3)
-            .checked_write(10e18);
-
-        // transfer token
-        (bool success, ) = address(rollup).call{value: 10e18}("");
-        require(success, "transfer ether failed");
+        rollup.deposit{value: 10 ether}(senderKey[0], senderKey[1]);
+        rollup.deposit{value: 10 ether}(recipientKey[0], recipientKey[1]);
 
         rollup.rollUp(a, b, c, input);
-        Rollup.User memory sender = rollup.getUserByIndex(senderIdx);
-        Rollup.User memory recipient = rollup.getUserByIndex(recipientIdx);
+        Rollup.User memory sender = rollup.getUserByPublicKey(senderKey[0], senderKey[1]);
+        Rollup.User memory recipient = rollup.getUserByPublicKey(recipientKey[0], recipientKey[1]);
         assertEq(newRoot, rollup.balanceTreeRoot());
         
         // sender transfer 1 ether to recipient twice
         // make a rollup to layer 1
         // fee is 0.5 ether
         assertEq(sender.balance, 7e18);
-        assertEq(recipient.balance, 2e18);
+        assertEq(recipient.balance, 12e18);
     }
 
     receive() external payable {}

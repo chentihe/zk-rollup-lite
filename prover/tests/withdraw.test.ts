@@ -25,10 +25,11 @@ describe("withdraw.circom", () => {
         const balanceTree = await smt.newMemEmptyTrie()
         const leaf = poseidon([pubA[0], pubA[1], BigInt(1e18), 0])
 
-        await balanceTree.insert(0, leaf)
+        await balanceTree.insert(1, leaf)
 
         const newLeaf = poseidon([pubA[0], pubA[1], BigInt(0.5e18), 0])
-        const res = await balanceTree.update(0, newLeaf)
+        await balanceTree.update(1, newLeaf)
+        const res = await balanceTree.find(1)
 
         const siblings = fillSiblings(depth, res.siblings)
 
@@ -40,18 +41,16 @@ describe("withdraw.circom", () => {
         // Create circuit inputs
         // All input format must be string
         const circuitInputs = stringifyBigInts({
-            publicKey: pubA,
+            balanceTreeRoot: balanceTree.root,
             signature,
             nullifier,
-            balanceTreeRoot: res.oldRoot,
+            publicKey: pubA,
             balance: BigInt(0.5e18),
             nonce: 0,
             pathElements: siblings,
-            oldKey: res.isOld0 ? 0 : res.oldKey,
-            oldValue: res.isOld0 ? 0 : res.oldValue,
-            isOld0: res.isOld0 ? 1 : 0,
-            newKey: res.newKey,
-            func: [0, 1]
+            oldKey: 0,
+            oldValue: 0,
+            newKey: 1
         })
 
         const witness = await circuit.calculateWitness(circuitInputs)
