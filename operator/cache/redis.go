@@ -45,16 +45,16 @@ func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, 
 	}, nil
 }
 
-func (cache *RedisCache) Get(context context.Context, key string, valueStruct interface{}) (interface{}, error) {
-	object, err := cache.marshal.Get(context, key, valueStruct)
+func (cache *RedisCache) Get(context context.Context, key string) (string, error) {
+	value, err := cache.Client.Get(context, key).Result()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return object, nil
+	return value, nil
 }
 
 func (cache *RedisCache) Set(context context.Context, key string, value interface{}) error {
-	return cache.marshal.Set(context, key, value)
+	return cache.Client.Set(context, key, value, -1).Err()
 }
 
 func (cache *RedisCache) Close() error {

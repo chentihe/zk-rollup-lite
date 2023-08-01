@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"math"
+	"strconv"
 
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
@@ -39,7 +41,10 @@ func NewTransactionService(accountService *AccountService, tree *tree.AccountTre
 
 func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo) (int64, error) {
 	// create a rollup tx object to save into redis
-	redisTx := circuits.RollupTx{Root: service.accountTree.GetRoot()}
+	redisTx := circuits.RollupTx{
+		Tx:   tx,
+		Root: service.accountTree.GetRoot(),
+	}
 
 	fromAccount, err := service.accountService.GetAccountByIndex(tx.From)
 	if err != nil {
@@ -57,24 +62,28 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 	}
 
 	// set sender data into rollup tx
-	redisTx.Sender.Account = fromAccount
 	senderPathElements, err := service.accountTree.GetPathByAccount(fromAccount)
 	if err != nil {
 		return math.MaxInt64, err
 	}
-	redisTx.Sender.PathElements = senderPathElements
+	redisTx.Sender = &circuits.AccountInfo{
+		Account:      *fromAccount.Copy(),
+		PathElements: senderPathElements,
+	}
 
 	toAccount, err := service.accountService.GetAccountByIndex(tx.To)
 	if err != nil {
 		return math.MaxInt64, err
 	}
 
-	redisTx.Recipient.Account = toAccount
 	recipientPathElements, err := service.accountTree.GetPathByAccount(toAccount)
 	if err != nil {
 		return math.MaxInt64, err
 	}
-	redisTx.Recipient.PathElements = recipientPathElements
+	redisTx.Recipient = &circuits.AccountInfo{
+		Account:      *toAccount.Copy(),
+		PathElements: recipientPathElements,
+	}
 
 	// update sender balance & nonce
 	fromAccount.Balance = fromAccount.Balance.Sub(fromAccount.Balance, tx.Amount)
@@ -108,39 +117,30 @@ func (service *TransactionService) SendTransaction(tx *txmanager.TransactionInfo
 		return math.MaxInt64, err
 	}
 
-	lastInsertedTx, err := service.redisCache.Get(service.context, service.keys.LastInsertedKey, new(int))
+	value, err := service.redisCache.Get(service.context, service.keys.LastInsertedKey)
+	if err != nil {
+		return math.MaxInt64, err
+	}
+
+	lastInsertedTx, err := strconv.Atoi(value)
 	if err != nil {
 		return math.MaxInt64, err
 	}
 
 	// no pending transactions to roll up
-	if lastInsertedTx == -1 {
-		lastInsertedTx = 0
-	}
-
-	// encodedBytes := new(bytes.Buffer)
-	// if err := gob.NewEncoder(encodedBytes).Encode(tx); err != nil {
-	// 	return err
-	// }
-	if err = service.redisCache.Set(service.context, lastInsertedTx.(string), redisTx); err != nil {
+	lastInsertedTx++
+	serializedTx, err := json.Marshal(redisTx)
+	if err != nil {
 		return math.MaxInt64, err
 	}
 
-	lastInsertedTx = lastInsertedTx.(int) + 1
-
-	// send rollup command to channel
-	// reset the inserted tx to -1
-	if lastInsertedTx == 2 {
-		lastInsertedTx = -1
-
-		if err = service.redisCache.Set(service.context, lastInsertedTx.(string), redisTx); err != nil {
-			return math.MaxInt64, err
-		}
-	}
-
-	if err = service.redisCache.Set(service.context, service.keys.LastInsertedKey, lastInsertedTx); err != nil {
+	if err = service.redisCache.Set(service.context, strconv.Itoa(lastInsertedTx), serializedTx); err != nil {
 		return math.MaxInt64, err
 	}
 
-	return lastInsertedTx.(int64), nil
+	if err = service.redisCache.Set(service.context, service.keys.LastInsertedKey, strconv.Itoa(lastInsertedTx)); err != nil {
+		return math.MaxInt64, err
+	}
+
+	return (int64)(lastInsertedTx), nil
 }

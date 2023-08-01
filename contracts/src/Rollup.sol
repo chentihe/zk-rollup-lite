@@ -68,10 +68,6 @@ contract Rollup {
             revert Errors.INVALID_ROLLUP_PROOFS();
         }
 
-        if (balanceTreeRoot != input[1]) {
-            revert Errors.INVALID_MERKLE_TREE();
-        }
-
         uint256 newRoot = input[0];
 
         // Transaction

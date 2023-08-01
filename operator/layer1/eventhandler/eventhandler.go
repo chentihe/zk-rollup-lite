@@ -2,9 +2,12 @@ package eventhandler
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"strings"
 
+	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
@@ -16,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/iden3/go-iden3-crypto/babyjub"
+	"github.com/spf13/viper"
 )
 
 type EventHandler struct {
@@ -27,10 +31,11 @@ type EventHandler struct {
 	abi            *abi.ABI
 	accountService *services.AccountService
 	accountTree    *tree.AccountTree
+	config         *config.Config
 }
 
-func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI, contractAddress string) (*EventHandler, error) {
-	rollupAddress := common.HexToAddress(contractAddress)
+func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI, config *config.Config) (*EventHandler, error) {
+	rollupAddress := common.HexToAddress(config.SmartContract.Address)
 
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{rollupAddress},
@@ -43,6 +48,7 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 		ethClient:      ethClient,
 		accountService: accountService,
 		accountTree:    accountTree,
+		config:         config,
 	}, nil
 }
 
@@ -146,6 +152,21 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 		if _, err = e.accountTree.AddAccount(accountDto); err != nil {
 			return err
 		}
+
+		// update account index on env.yaml
+		for i, account := range e.config.Accounts {
+			var k babyjub.PrivateKey
+			_, err := hex.Decode(k[:], []byte(account.EddsaPrivKey))
+			if err != nil {
+				return err
+			}
+
+			if strings.Compare(k.Public().String(), publicKey) == 0 {
+				e.config.Accounts[i].Index = user.Index.Int64()
+			}
+		}
+		viper.Set("accounts", e.config.Accounts)
+		viper.WriteConfig()
 	default:
 		accountDto.Balance = user.Balance
 		accountDto.Nonce = user.Nonce.Int64()

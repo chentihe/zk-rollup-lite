@@ -76,8 +76,8 @@ type EthClient struct {
 
 type Account struct {
 	EcdsaPrivKey string `mapstructure:"ecdsaprivkey"`
-	Index        int64  `mapstructure:"index"`
 	EddsaPrivKey string `mapstructure:"eddsaprivkey"`
+	Index        int64  `mapstructure:"index"`
 }
 
 type Circuit struct {

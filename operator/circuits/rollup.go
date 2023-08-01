@@ -26,23 +26,23 @@ type RollupTx struct {
 }
 
 type AccountInfo struct {
-	Account      *models.AccountDto
+	Account      models.AccountDto
 	PathElements []*merkletree.Hash
 }
 
 type rollupCircuitInputs struct {
-	BalanceTreeRoots                     []string
-	TxData                               [][]string
-	TxSendersPublicKey                   [][2]string
-	TxSendersBalance                     []string
-	TxSendersNonce                       []string
-	TxSendersPathElements                [][6]string
-	TxRecipientsPublicKey                [][2]string
-	TxRecipientsBalance                  []string
-	TxRecipientsNonce                    []string
-	TxRecipientsPathElements             [][6]string
-	IntermediateBalanceTreeRoots         []string
-	IntermediateBalanceTreesPathElements [][6]string
+	BalanceTreeRoots                     []*merkletree.Hash    `json:"balanceTreeRoots"`
+	TxData                               [][]string            `json:"txData"`
+	TxSendersPublicKey                   [][2]string           `json:"txSendersPublicKey"`
+	TxSendersBalance                     []string              `json:"txSendersBalance"`
+	TxSendersNonce                       []string              `json:"txSendersNonce"`
+	TxSendersPathElements                [][6]*merkletree.Hash `json:"txSendersPathElements"`
+	TxRecipientsPublicKey                [][2]string           `json:"txRecipientsPublicKey"`
+	TxRecipientsBalance                  []string              `json:"txRecipientsBalance"`
+	TxRecipientsNonce                    []string              `json:"txRecipientsNonce"`
+	TxRecipientsPathElements             [][6]*merkletree.Hash `json:"txRecipientsPathElements"`
+	IntermediateBalanceTreeRoots         []*merkletree.Hash    `json:"intermediateBalanceTreeRoots"`
+	IntermediateBalanceTreesPathElements [][6]*merkletree.Hash `json:"intermediateBalanceTreesPathElements"`
 }
 
 func (r *RollupInputs) InputsMarshal() ([]byte, error) {
@@ -63,24 +63,24 @@ func (r *RollupInputs) InputsMarshal() ([]byte, error) {
 			return nil, err
 		}
 
-		circuitInputs.BalanceTreeRoots = append(circuitInputs.BalanceTreeRoots, tx.Root.String())
+		circuitInputs.BalanceTreeRoots = append(circuitInputs.BalanceTreeRoots, tx.Root)
 		circuitInputs.TxData = append(circuitInputs.TxData, tx.Tx.ToArray())
 
 		// sender
 		circuitInputs.TxSendersPublicKey = append(circuitInputs.TxSendersPublicKey, *senderPublicKey)
 		circuitInputs.TxSendersBalance = append(circuitInputs.TxSendersBalance, tx.Sender.Account.Balance.String())
 		circuitInputs.TxSendersNonce = append(circuitInputs.TxSendersNonce, strconv.Itoa(int(tx.Sender.Account.Nonce)))
-		circuitInputs.TxSendersPathElements = append(circuitInputs.TxSendersPathElements, tree.StringifyPath(tx.Sender.PathElements))
+		circuitInputs.TxSendersPathElements = append(circuitInputs.TxSendersPathElements, ([6]*merkletree.Hash)(tx.Sender.PathElements))
 
 		// recipient
 		circuitInputs.TxRecipientsPublicKey = append(circuitInputs.TxRecipientsPublicKey, *recipientPublicKey)
 		circuitInputs.TxRecipientsBalance = append(circuitInputs.TxRecipientsBalance, tx.Recipient.Account.Balance.String())
 		circuitInputs.TxRecipientsNonce = append(circuitInputs.TxRecipientsNonce, strconv.Itoa(int(tx.Recipient.Account.Nonce)))
-		circuitInputs.TxRecipientsPathElements = append(circuitInputs.TxRecipientsPathElements, tree.StringifyPath(tx.Sender.PathElements))
+		circuitInputs.TxRecipientsPathElements = append(circuitInputs.TxRecipientsPathElements, ([6]*merkletree.Hash)(tx.Recipient.PathElements))
 
 		// intermediate info
-		circuitInputs.IntermediateBalanceTreeRoots = append(circuitInputs.IntermediateBalanceTreeRoots, tx.IntermediateBalanceTreeRoot.String())
-		circuitInputs.IntermediateBalanceTreesPathElements = append(circuitInputs.IntermediateBalanceTreesPathElements, tree.StringifyPath(tx.IntermediateBalanceTreePathElements))
+		circuitInputs.IntermediateBalanceTreeRoots = append(circuitInputs.IntermediateBalanceTreeRoots, tx.IntermediateBalanceTreeRoot)
+		circuitInputs.IntermediateBalanceTreesPathElements = append(circuitInputs.IntermediateBalanceTreesPathElements, ([6]*merkletree.Hash)(tx.IntermediateBalanceTreePathElements))
 	}
 
 	return json.Marshal(circuitInputs)

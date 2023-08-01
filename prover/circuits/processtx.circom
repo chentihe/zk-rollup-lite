@@ -86,14 +86,14 @@ template ProcessTx(depth) {
     var VERIFY_INCLUSION = 0;
 
     txData[TX_DATA_NONCE_IDX] === txSenderNonce + 1;
-    signal isAmountValid <== GreaterThan(252)([txData[TX_DATA_AMOUNT_WEI_IDX], 0]);
+    signal isAmountValid <== GreaterEqThan(252)([txData[TX_DATA_AMOUNT_WEI_IDX], 0]);
     signal isFeeValid <== GreaterThan(252)([txData[TX_DATA_FEE_WEI_IDX], 0]);
 
     TRUE === isAmountValid;
     TRUE === isFeeValid;
     
     // 2. Make sure sender balance > amount + fee
-    signal isBalanceValid <== GreaterThan(252)([txSenderBalance, txData[TX_DATA_AMOUNT_WEI_IDX] + txData[TX_DATA_FEE_WEI_IDX]]);
+    signal isBalanceValid <== GreaterEqThan(252)([txSenderBalance, txData[TX_DATA_AMOUNT_WEI_IDX] + txData[TX_DATA_FEE_WEI_IDX]]);
 
     TRUE === isBalanceValid;
 

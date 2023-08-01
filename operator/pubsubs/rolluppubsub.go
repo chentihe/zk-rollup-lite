@@ -2,6 +2,7 @@ package pubsubs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -54,25 +55,28 @@ func (pubsub *RollupPubSub) Receive() {
 
 	go func() {
 		for msg := range ch {
-			switch msg.String() {
+			switch msg.Payload {
 			case pubsub.commands.RollupCommand:
 				// get tx amounts from redis
-				lastInsertedTx, err := pubsub.redisCache.Get(pubsub.context, pubsub.keys.LastInsertedKey, new(int))
+				value, err := pubsub.redisCache.Get(pubsub.context, pubsub.keys.LastInsertedKey)
+				if err != nil {
+					fmt.Printf("Get tx num err: %v", err)
+				}
+
+				lastInsertedTx, err := strconv.Atoi(value)
 				if err != nil {
 					fmt.Printf("Get tx num err: %v", err)
 				}
 
 				var rollupInputs circuits.RollupInputs
-				for i := 0; i < lastInsertedTx.(int); i++ {
-					object, err := pubsub.redisCache.Get(pubsub.context, strconv.Itoa(i), new(circuits.RollupTx))
+				for i := 0; i <= lastInsertedTx; i++ {
+					var tx circuits.RollupTx
+					object, err := pubsub.redisCache.Get(pubsub.context, strconv.Itoa(i))
 					if err != nil {
 						fmt.Printf("Get rollup tx err: %v", err)
 					}
 
-					tx, ok := object.(circuits.RollupTx)
-					if !ok {
-						fmt.Printf("Casting err: %v", circuits.ErrTx)
-					}
+					json.Unmarshal([]byte(object), &tx)
 					rollupInputs.Txs = append(rollupInputs.Txs, &tx)
 				}
 
@@ -95,30 +99,30 @@ func (pubsub *RollupPubSub) Receive() {
 					fmt.Printf("Circuit ouputs unmarshal err: %v", err)
 				}
 
-				data, err := pubsub.abi.Pack("rollup", rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
+				data, err := pubsub.abi.Pack("rollUp", rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
 				if err != nil {
-					fmt.Printf("Cannot pack rollup call data: %v", err)
+					fmt.Printf("Cannot pack rollup call data: %v\n", err)
 				}
 
-				tx, err := pubsub.signer.GenerateDynamicTx(pubsub.contractAddress, data, big.NewInt(0))
+				tx, err := pubsub.signer.GenerateLegacyTx(pubsub.contractAddress, data, big.NewInt(0))
 				if err != nil {
-					fmt.Printf("Send tx err: %v", err)
+					fmt.Printf("Send tx err: %v\n", err)
 				}
 
 				signTx, err := pubsub.signer.SignTx(tx)
 				if err != nil {
-					fmt.Printf("Sign tx err: %v", err)
+					fmt.Printf("Sign tx err: %v\n", err)
 				}
 
 				if err = pubsub.ethclient.SendTransaction(pubsub.context, signTx); err != nil {
-					fmt.Printf("Send tx err: %v", err)
+					fmt.Printf("Send tx err: %v\n", err)
 				}
 
-				if err = pubsub.redisCache.Set(pubsub.context, pubsub.keys.LastInsertedKey, -1); err != nil {
-					fmt.Printf("Update redis err: %v", err)
+				if err = pubsub.redisCache.Set(pubsub.context, pubsub.keys.LastInsertedKey, "-1"); err != nil {
+					fmt.Printf("Update redis err: %v\n", err)
 				}
 
-				fmt.Printf("Rollup finished: %v", tx)
+				fmt.Printf("Rollup finished: %v\n", signTx.Hash().String())
 			default:
 				fmt.Printf("Error msg: %v", msg.String())
 			}

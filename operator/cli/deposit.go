@@ -24,7 +24,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		return err
 	}
 
-	user, err := NewUser(account.EddsaPrivKey)
+	user, err := NewUser(&account)
 	if err != nil {
 		return err
 	}

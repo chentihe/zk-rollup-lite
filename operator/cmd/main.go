@@ -35,6 +35,7 @@ func main() {
 					flags.NodeFlag,
 				},
 				Action: func(ctx *cli.Context) error {
+
 					node := ctx.String(flags.NodeFlag.Name)
 					config, err := config.LoadConfig(node, "../config", "./config")
 					if err != nil {
@@ -60,6 +61,24 @@ func main() {
 					}
 					svc := servicecontext.NewServiceContext(context, config)
 					return zkCli.Withdraw(ctx, context, config, svc)
+				},
+			},
+			{
+				Name:  "sendtx",
+				Usage: "Execute a layer 2 tx",
+				Flags: []cli.Flag{
+					flags.AmountFlag,
+					flags.NodeFlag,
+					flags.AccountIndexFlag,
+				},
+				Action: func(ctx *cli.Context) error {
+					node := ctx.String(flags.NodeFlag.Name)
+					config, err := config.LoadConfig(node, "../config", "./config")
+					if err != nil {
+						panic(err)
+					}
+					svc := servicecontext.NewServiceContext(context, config)
+					return zkCli.SendTx(ctx, context, config, svc)
 				},
 			},
 			{

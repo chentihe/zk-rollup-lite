@@ -24,6 +24,18 @@ type AccountDto struct {
 	Balance      *big.Int
 }
 
+func (dto *AccountDto) Copy() *AccountDto {
+	balance := new(big.Int)
+	balance.SetString(dto.Balance.String(), 10)
+	return &AccountDto{
+		AccountIndex: dto.AccountIndex,
+		PublicKey:    dto.PublicKey,
+		L1Address:    dto.L1Address,
+		Nonce:        dto.Nonce,
+		Balance:      balance,
+	}
+}
+
 func (dto *AccountDto) ToModel() *Account {
 	return &Account{
 		AccountIndex: dto.AccountIndex,

@@ -17,5 +17,6 @@ var (
 		Name:    "node",
 		Aliases: []string{"n"},
 		Usage:   "the executing node",
+		Value:   "anvil",
 	}
 )

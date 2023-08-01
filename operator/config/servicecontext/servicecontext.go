@@ -72,7 +72,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}
 
-	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, wsClient, &contractAbi, config.SmartContract.Address)
+	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, wsClient, &contractAbi, config)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}

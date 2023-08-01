@@ -10,12 +10,12 @@ import (
 )
 
 type TransactionInfo struct {
-	From      int64
-	To        int64
-	Amount    *big.Int
-	Fee       *big.Int
-	Nonce     int64
-	Signature *babyjub.Signature
+	From      int64              `json:"from"`
+	To        int64              `json:"to"`
+	Amount    *big.Int           `json:"amount"`
+	Fee       *big.Int           `json:"fee"`
+	Nonce     int64              `json:"nonce"`
+	Signature *babyjub.Signature `json:"signature"`
 }
 
 func (txInfo *TransactionInfo) ToArray() []string {
@@ -60,19 +60,29 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 	}
 
 	// fix the fee
-	if txInfo.Fee != fee {
-		txInfo.Fee = fee
+	if txInfo.Fee != Fee {
+		txInfo.Fee = Fee
 	}
 
 	if txInfo.Nonce < minNonce {
 		return ErrNonceTooLow
 	}
 
-	if txInfo.Nonce != fromAccountNonce {
+	if txInfo.Nonce != fromAccountNonce+1 {
 		return ErrInvalidNonce
 	}
 
 	return nil
+}
+
+func (txInfo *TransactionInfo) HashMsg() (*big.Int, error) {
+	return poseidon.Hash([]*big.Int{
+		big.NewInt(txInfo.From),
+		big.NewInt(txInfo.To),
+		txInfo.Amount,
+		txInfo.Fee,
+		big.NewInt(txInfo.Nonce),
+	})
 }
 
 func (txInfo *TransactionInfo) VerifySignature(comp string) error {
@@ -81,13 +91,7 @@ func (txInfo *TransactionInfo) VerifySignature(comp string) error {
 		return err
 	}
 
-	hashedMsg, err := poseidon.Hash([]*big.Int{
-		big.NewInt(txInfo.From),
-		big.NewInt(txInfo.To),
-		txInfo.Amount,
-		txInfo.Fee,
-		big.NewInt(txInfo.Nonce),
-	})
+	hashedMsg, err := txInfo.HashMsg()
 	if err != nil {
 		return err
 	}

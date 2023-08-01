@@ -24,7 +24,7 @@ func NewTransactionController(transactionService *services.TransactionService, p
 
 func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 	var tx *txmanager.TransactionInfo
-	if err := ctx.ShouldBindQuery(&tx); err != nil {
+	if err := ctx.ShouldBindJSON(&tx); err != nil {
 		panic(err)
 	}
 
@@ -33,7 +33,7 @@ func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 		panic(err)
 	}
 
-	if savedTxs == -1 {
+	if savedTxs == 1 {
 		c.TransactionPubSub.Publish("execute roll up")
 	}
 
