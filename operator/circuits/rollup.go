@@ -7,7 +7,7 @@ import (
 
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
-	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
+	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-rapidsnark/types"
 )
@@ -17,7 +17,7 @@ type RollupInputs struct {
 }
 
 type RollupTx struct {
-	Tx                                  *txmanager.TransactionInfo
+	Tx                                  *txutils.TransactionInfo
 	Root                                *merkletree.Hash
 	Sender                              *AccountInfo
 	Recipient                           *AccountInfo

@@ -11,7 +11,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/cmd/flags"
 	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/config/servicecontext"
-	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
+	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -47,11 +47,11 @@ func SendTx(ctx *cli.Context, context context.Context, config *config.Config, sv
 		return err
 	}
 
-	tx := txmanager.TransactionInfo{
+	tx := txutils.TransactionInfo{
 		From:   accounts.Sender.Index,
 		To:     accounts.Recipient.Index,
 		Amount: transferAmount,
-		Fee:    txmanager.Fee,
+		Fee:    txutils.Fee,
 		Nonce:  accountDto.Nonce + 1,
 	}
 

@@ -21,9 +21,20 @@ func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, 
 		return nil, err
 	}
 
-	return &RedisCache{
-		client,
-	}, nil
+	cache := &RedisCache{client}
+	cache.initKeys(context, &config.Keys)
+
+	return cache, nil
+}
+
+func (cache *RedisCache) initKeys(context context.Context, keys *config.Keys) {
+	if _, err := cache.Get(context, keys.LastInsertedKey); err != nil {
+		cache.Set(context, keys.LastInsertedKey, "0")
+	}
+
+	if _, err := cache.Get(context, keys.RollupedTxsKey); err != nil {
+		cache.Set(context, keys.RollupedTxsKey, "0")
+	}
 }
 
 func (cache *RedisCache) Get(context context.Context, key string) (string, error) {
@@ -36,6 +47,10 @@ func (cache *RedisCache) Get(context context.Context, key string) (string, error
 
 func (cache *RedisCache) Set(context context.Context, key string, value interface{}) error {
 	return cache.Client.Set(context, key, value, -1).Err()
+}
+
+func (cache *RedisCache) Del(context context.Context, keys []string) error {
+	return cache.Client.Del(context, keys...).Err()
 }
 
 func (cache *RedisCache) Close() error {

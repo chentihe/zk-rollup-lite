@@ -12,9 +12,9 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/db"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/eventhandler"
-	"github.com/chentihe/zk-rollup-lite/operator/pubsubs"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
+	txmanger "github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -31,7 +31,7 @@ type ServiceContext struct {
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
-	rollupPubSub          pubsubs.Subscriber
+	txManager             *txmanger.TxManager
 	eventHandler          *eventhandler.EventHandler
 }
 
@@ -79,8 +79,8 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	}
 
 	transctionService := services.NewTransactionService(context, accountService, accountTree, redis, &config.Redis.Keys)
-	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, config.Redis.Channels.RollupCh, context, config.SmartContract.Address, config.Circuit.Path, &config.Redis)
-	transactionController := controllers.NewTransactionController(transctionService, &rollupPubSub)
+	transactionController := controllers.NewTransactionController(transctionService)
+	txManager := txmanger.NewTxManager(context, redis, signer, ethClient, &contractAbi, &contractAddress, config.Circuit.Path, &config.Redis)
 
 	return &ServiceContext{
 		PostgresDB:            db,
@@ -92,12 +92,12 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		AccountService:        accountService,
 		AccountController:     accountController,
 		TransactionController: transactionController,
-		rollupPubSub:          rollupPubSub,
+		txManager:             txManager,
 		eventHandler:          eventHandler,
 	}
 }
 
 func (svc *ServiceContext) StartDaemon() {
 	svc.eventHandler.Listening()
-	svc.rollupPubSub.Receive()
+	svc.txManager.Listening()
 }

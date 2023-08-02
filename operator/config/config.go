@@ -47,6 +47,7 @@ type Redis struct {
 
 type Keys struct {
 	LastInsertedKey string `mapstructure:"lastinsertedkey"`
+	RollupedTxsKey  string `mapsturcture:"rollupedtxskey"`
 }
 
 type Commands struct {

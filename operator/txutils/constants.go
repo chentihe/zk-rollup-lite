@@ -1,4 +1,4 @@
-package txmanager
+package txutils
 
 import (
 	"math/big"
