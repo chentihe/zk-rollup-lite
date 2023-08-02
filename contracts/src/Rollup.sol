@@ -4,7 +4,6 @@ pragma solidity >0.8.0 <=0.9;
 import {TxVerifier} from "./verifiers/TxVerifier.sol";
 import {WithdrawVerifier} from "./verifiers/WithdrawVerifier.sol";
 
-import {Constants} from "./Constants.sol";
 import {Errors} from "./Errors.sol";
 
 contract Rollup {
@@ -141,7 +140,6 @@ contract Rollup {
         emit Deposit(user);
     }
 
-    // withdraw all deposit
     function withdraw(
         uint256 amount,
         uint256[2] memory a,
@@ -162,7 +160,7 @@ contract Rollup {
         }
 
         User storage user = _getUserByPublicKey(publicKeyX, publicKeyY);
-        if (amount == Constants.UINT256_MAX) {
+        if (amount == type(uint256).max) {
             amount = user.balance;
         }
 
@@ -221,7 +219,4 @@ contract Rollup {
 
         accruedFees = 0;
     }
-
-    receive() external payable {}
-    fallback() external payable {}
 }
