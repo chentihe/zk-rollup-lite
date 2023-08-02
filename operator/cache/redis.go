@@ -4,16 +4,11 @@ import (
 	"context"
 
 	"github.com/chentihe/zk-rollup-lite/operator/config"
-	"github.com/eko/gocache/lib/v4/cache"
-	"github.com/eko/gocache/lib/v4/marshaler"
-	"github.com/eko/gocache/lib/v4/metrics"
-	redis_store "github.com/eko/gocache/store/redis/v4"
 	"github.com/redis/go-redis/v9"
 )
 
 type RedisCache struct {
-	Client  *redis.Client
-	marshal *marshaler.Marshaler
+	Client *redis.Client
 }
 
 func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, error) {
@@ -26,22 +21,8 @@ func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, 
 		return nil, err
 	}
 
-	redisInstance := redis_store.NewRedis(client)
-
-	redisCacheManager := cache.New[any](redisInstance)
-
-	promMetrics := metrics.NewPrometheus(config.Prometheus)
-
-	cacheManager := cache.NewMetric[any](
-		promMetrics,
-		redisCacheManager,
-	)
-
-	marshal := marshaler.New(cacheManager)
-
 	return &RedisCache{
 		client,
-		marshal,
 	}, nil
 }
 

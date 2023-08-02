@@ -9,32 +9,24 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/config"
-	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 type TransactionService struct {
 	accountService *AccountService
 	accountTree    *tree.AccountTree
 	redisCache     *cache.RedisCache
-	signer         *clients.Signer
-	abi            *abi.ABI
 	context        context.Context
-	circuitPath    string
 	keys           *config.Keys
 }
 
-func NewTransactionService(accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, signer *clients.Signer, abi *abi.ABI, context context.Context, circuitPath string, keys *config.Keys) *TransactionService {
+func NewTransactionService(context context.Context, accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, keys *config.Keys) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
 		redisCache:     cache,
-		signer:         signer,
-		abi:            abi,
 		context:        context,
-		circuitPath:    circuitPath,
 		keys:           keys,
 	}
 }

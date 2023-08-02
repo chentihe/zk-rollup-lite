@@ -25,7 +25,7 @@ func NewTransactionController(transactionService *services.TransactionService, p
 func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 	var tx *txmanager.TransactionInfo
 	if err := ctx.ShouldBindJSON(&tx); err != nil {
-		panic(err)
+		ctx.IndentedJSON(http.StatusBadRequest, err)
 	}
 
 	savedTxs, err := c.TransactionService.SendTransaction(tx)
@@ -37,5 +37,5 @@ func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 		c.TransactionPubSub.Publish("execute roll up")
 	}
 
-	ctx.IndentedJSON(http.StatusOK, "tx finished")
+	ctx.IndentedJSON(http.StatusCreated, "send tx sucess")
 }

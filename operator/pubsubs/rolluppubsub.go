@@ -29,6 +29,7 @@ type RollupPubSub struct {
 	commands        *config.Commands
 }
 
+// TODO: move the rollup logic to tx queue
 func NewRollupPubSub(redisCache *cache.RedisCache, signer *clients.Signer, ethclient *ethclient.Client, abi *abi.ABI, channel string, context context.Context, contractAddress string, circuitPath string, config *config.Redis) Subscriber {
 	rollupContract := common.HexToAddress(contractAddress)
 	return &RollupPubSub{

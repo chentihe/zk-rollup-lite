@@ -8,5 +8,4 @@ import (
 func AddAccountRoutes(v1 *gin.RouterGroup, accountController *controllers.AccountController) {
 	accountGroup := v1.Group("/accounts")
 	accountGroup.GET(":id", accountController.GetAccountByIndex)
-	accountGroup.GET("/currentindex", accountController.GetCurrentAccountIndex)
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/iden3/go-iden3-crypto/poseidon"
-	"github.com/iden3/go-merkletree-sql/v2"
 )
 
 func GenerateAccountLeaf(accountDto *models.AccountDto) (*big.Int, error) {
@@ -31,18 +30,12 @@ func GenerateAccountLeaf(accountDto *models.AccountDto) (*big.Int, error) {
 
 func DecodePublicKeyFromString(comp string) (*babyjub.PublicKey, error) {
 	bytesPublicKey, err := hex.DecodeString(comp)
+	if err != nil {
+		return nil, err
+	}
 
 	publicKeyComp := babyjub.PublicKeyComp(bytesPublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKey, err := publicKeyComp.Decompress()
-	if err != nil {
-		return nil, err
-	}
-
-	return publicKey, nil
+	return publicKeyComp.Decompress()
 }
 
 func StringifyPublicKey(comp string) (*[2]string, error) {
@@ -53,12 +46,4 @@ func StringifyPublicKey(comp string) (*[2]string, error) {
 	x := publicKey.X.String()
 	y := publicKey.Y.String()
 	return &[2]string{x, y}, nil
-}
-
-func StringifyPath(siblings []*merkletree.Hash) [6]string {
-	pathElements := [6]string{}
-	for i, sibling := range siblings {
-		pathElements[i] = sibling.BigInt().String()
-	}
-	return pathElements
 }

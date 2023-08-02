@@ -18,9 +18,11 @@ const mtDepth = 5
 
 type AccountTree struct {
 	context context.Context
-	PgxPool *pgxpool.Pool
+	pgxPool *pgxpool.Pool
 }
 
+// sparse merkle tree reserves the index 0
+// don't insert leaf into index 0
 func InitAccountTree(context context.Context, ethClient *ethclient.Client, abi *abi.ABI, contractAddress *common.Address, config *config.Postgres) (*AccountTree, error) {
 	pool, err := pgxpool.New(context, config.Url())
 	if err != nil {
@@ -29,12 +31,14 @@ func InitAccountTree(context context.Context, ethClient *ethclient.Client, abi *
 
 	return &AccountTree{
 		context: context,
-		PgxPool: pool,
+		pgxPool: pool,
 	}, nil
 }
 
+// need to restore the mt before interact with the mt,
+// otherwise the app cannot get the latest merkle root
 func (accountTree *AccountTree) RestoreTree() (*merkletree.MerkleTree, error) {
-	treeStroage := sql.NewSqlStorage(accountTree.PgxPool, 1)
+	treeStroage := sql.NewSqlStorage(accountTree.pgxPool, 1)
 	return merkletree.NewMerkleTree(accountTree.context, treeStroage, mtDepth)
 }
 
@@ -65,6 +69,7 @@ func (accountTree *AccountTree) UpdateAccount(accountDto *models.AccountDto) (*m
 		return nil, err
 	}
 
+	// circuit processor proof
 	proof, err := mt.Update(accountTree.context, big.NewInt(accountDto.AccountIndex), leaf)
 	if err != nil {
 		return nil, err
@@ -74,13 +79,12 @@ func (accountTree *AccountTree) UpdateAccount(accountDto *models.AccountDto) (*m
 }
 
 func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]*merkletree.Hash, error) {
-	index := account.AccountIndex
-
 	mt, err := accountTree.RestoreTree()
 	if err != nil {
 		return nil, err
 	}
 
+	index := account.AccountIndex
 	_, _, siblings, err := mt.Get(accountTree.context, big.NewInt(index))
 	if err != nil {
 		return nil, err
@@ -93,13 +97,12 @@ func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]
 }
 
 func (accountTree *AccountTree) GenerateCircomVerifierProof(account *models.AccountDto) (*merkletree.CircomVerifierProof, error) {
-	index := account.AccountIndex
-
 	mt, err := accountTree.RestoreTree()
 	if err != nil {
 		return nil, err
 	}
 
+	index := account.AccountIndex
 	proof, err := mt.GenerateCircomVerifierProof(accountTree.context, big.NewInt(index), nil)
 	if err != nil {
 		return nil, err

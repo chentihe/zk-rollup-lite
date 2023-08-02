@@ -31,10 +31,6 @@ func (service *AccountService) GetAccountByPublicKey(comp string) (accountDto *m
 	return account.ToDto()
 }
 
-func (service *AccountService) GetCurrentAccountIndex() (amount int64, err error) {
-	return service.AccountDao.GetCurrentAccountIndex()
-}
-
 func (service *AccountService) CreateAccount(accountDto *models.AccountDto) (err error) {
 	return service.AccountDao.CreateAccount(accountDto.ToModel())
 }

@@ -12,7 +12,7 @@ type Config struct {
 	Redis         Redis         `mapstructure:"redis"`
 	SmartContract SmartContract `mapstructure:"smartcontract"`
 	EthClient     EthClient     `mapstructure:"ethclient"`
-	Accounts      []Account     `mapstructure:"accounts"`
+	Accounts      []*Account    `mapstructure:"accounts"`
 	Circuit       Circuit       `mapstructure:"circuit"`
 }
 
@@ -37,13 +37,12 @@ func (postgres *Postgres) Url() string {
 }
 
 type Redis struct {
-	Host       string   `mapstructure:"host"`
-	Password   string   `mapstructure:"password"`
-	Port       string   `mapstructure:"port"`
-	Prometheus string   `mapstructure:"prometheus"`
-	Keys       Keys     `mapstructure:"keys"`
-	Commands   Commands `mapstructure:"commands"`
-	Channels   Channels `mapstructure:"channels"`
+	Host     string   `mapstructure:"host"`
+	Password string   `mapstructure:"password"`
+	Port     string   `mapstructure:"port"`
+	Keys     Keys     `mapstructure:"keys"`
+	Commands Commands `mapstructure:"commands"`
+	Channels Channels `mapstructure:"channels"`
 }
 
 type Keys struct {
@@ -55,7 +54,6 @@ type Commands struct {
 }
 
 type Channels struct {
-	SendTxCh string `mapstructure:"sendtxchannel"`
 	RollupCh string `mapstructure:"rollupchannel"`
 }
 

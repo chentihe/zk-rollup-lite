@@ -18,8 +18,8 @@ type Signer struct {
 	PublicKey  *ecdsa.PublicKey
 	Address    common.Address
 	ethClient  *ethclient.Client
-	ChainId    *big.Int
-	Context    context.Context
+	chainId    *big.Int
+	context    context.Context
 }
 
 func NewSigner(context context.Context, priv string, ethClient *ethclient.Client) (*Signer, error) {
@@ -46,23 +46,18 @@ func NewSigner(context context.Context, priv string, ethClient *ethclient.Client
 		PublicKey:  publicKeyECDSA,
 		Address:    signerAddress,
 		ethClient:  ethClient,
-		ChainId:    chainId,
-		Context:    context,
+		chainId:    chainId,
+		context:    context,
 	}, nil
 }
 
 func (signer *Signer) GetAuth() (*bind.TransactOpts, error) {
-	gasPrice, err := signer.ethClient.SuggestGasPrice(signer.Context)
+	gasPrice, err := signer.ethClient.SuggestGasPrice(signer.context)
 	if err != nil {
 		return nil, err
 	}
 
-	chainId, err := signer.ethClient.ChainID(signer.Context)
-	if err != nil {
-		return nil, err
-	}
-
-	auth, err := bind.NewKeyedTransactorWithChainID(signer.privateKey, chainId)
+	auth, err := bind.NewKeyedTransactorWithChainID(signer.privateKey, signer.chainId)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +69,12 @@ func (signer *Signer) GetAuth() (*bind.TransactOpts, error) {
 }
 
 func (signer *Signer) GenerateLegacyTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
+	nonce, err := signer.ethClient.PendingNonceAt(signer.context, signer.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
+	feeCap, err := signer.ethClient.SuggestGasPrice(signer.context)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +89,7 @@ func (signer *Signer) GenerateLegacyTx(to *common.Address, data []byte, value *b
 		callMsg.Value = value
 	}
 
-	gasLimit, err := signer.ethClient.EstimateGas(signer.Context, callMsg)
+	gasLimit, err := signer.ethClient.EstimateGas(signer.context, callMsg)
 	if err != nil {
 		return nil, err
 	}
@@ -113,16 +108,16 @@ func (signer *Signer) GenerateLegacyTx(to *common.Address, data []byte, value *b
 }
 
 func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *big.Int) (*types.Transaction, error) {
-	nonce, err := signer.ethClient.PendingNonceAt(signer.Context, signer.Address)
+	nonce, err := signer.ethClient.PendingNonceAt(signer.context, signer.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	tipCap, err := signer.ethClient.SuggestGasTipCap(signer.Context)
+	tipCap, err := signer.ethClient.SuggestGasTipCap(signer.context)
 	if err != nil {
 		return nil, err
 	}
-	feeCap, err := signer.ethClient.SuggestGasPrice(signer.Context)
+	feeCap, err := signer.ethClient.SuggestGasPrice(signer.context)
 	if err != nil {
 		return nil, err
 	}
@@ -134,14 +129,14 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 		Data:  data,
 	}
 
-	gasLimit, err := signer.ethClient.EstimateGas(signer.Context, callMsg)
+	gasLimit, err := signer.ethClient.EstimateGas(signer.context, callMsg)
 	if err != nil {
 		return nil, err
 	}
 
 	tx := types.NewTx(
 		&types.DynamicFeeTx{
-			ChainID:   signer.ChainId,
+			ChainID:   signer.chainId,
 			Nonce:     nonce,
 			GasTipCap: tipCap,
 			GasFeeCap: feeCap,
@@ -155,5 +150,5 @@ func (signer *Signer) GenerateDynamicTx(to *common.Address, data []byte, value *
 }
 
 func (signer *Signer) SignTx(tx *types.Transaction) (*types.Transaction, error) {
-	return types.SignTx(tx, types.NewLondonSigner(signer.ChainId), signer.privateKey)
+	return types.SignTx(tx, types.NewLondonSigner(signer.chainId), signer.privateKey)
 }

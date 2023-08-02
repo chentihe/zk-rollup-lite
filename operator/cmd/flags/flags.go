@@ -14,9 +14,10 @@ var (
 		Usage:   "the account index",
 	}
 	NodeFlag = &cli.StringFlag{
-		Name:    "node",
-		Aliases: []string{"n"},
-		Usage:   "the executing node",
-		Value:   "anvil",
+		Name:        "node",
+		Aliases:     []string{"n"},
+		Usage:       "the executing node",
+		Value:       "anvil",
+		DefaultText: "default node is anvil from foundry",
 	}
 )

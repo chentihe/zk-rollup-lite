@@ -12,6 +12,7 @@ type ProofData struct {
 	C [2]*big.Int
 }
 
+// convert to solidity format proof
 func (p *ProofData) ProofUnmarshal(proof *types.ProofData) error {
 	a, err := stringsToArrayBigInt(proof.A)
 	if err != nil {

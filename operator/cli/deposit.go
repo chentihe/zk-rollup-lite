@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/big"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/urfave/cli/v2"
 )
 
@@ -24,7 +22,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		return err
 	}
 
-	user, err := NewUser(&account)
+	user, err := NewUser(account)
 	if err != nil {
 		return err
 	}
@@ -35,6 +33,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 	accountDto, err := svc.AccountService.GetAccountByPublicKey(comp)
 	if err == daos.ErrAccountNotFound {
+		// index will be updated once the deposit event emits
 		accountDto = &models.AccountDto{
 			PublicKey: comp,
 			Balance:   depositAmount,
@@ -46,11 +45,10 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 
 	data, err := svc.Abi.Pack("deposit", user.PublicKey.X, user.PublicKey.Y)
 	if err != nil {
-		fmt.Printf("Cannot pack rollup call data: %v", err)
+		log.Printf("Cannot pack rollup call data: %v\n", err)
 	}
 
-	rollupAddress := common.HexToAddress(config.SmartContract.Address)
-	tx, err := signer.GenerateLegacyTx(&rollupAddress, data, depositAmount)
+	tx, err := signer.GenerateLegacyTx(svc.RollUpAddress, data, depositAmount)
 	if err != nil {
 		return err
 	}

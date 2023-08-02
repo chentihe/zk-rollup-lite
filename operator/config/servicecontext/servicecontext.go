@@ -26,6 +26,7 @@ type ServiceContext struct {
 	Redis                 *cache.RedisCache
 	AccountTree           *tree.AccountTree
 	EthClient             *ethclient.Client
+	RollUpAddress         *common.Address
 	Abi                   *abi.ABI
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
@@ -47,7 +48,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 
 	ethClient, wsClient, err := clients.InitEthClient(&config.EthClient)
 	if err != nil {
-		panic(fmt.Sprintf("cannot initialize eth client, %v\n", err))
+		panic(fmt.Sprintf("cannot initialize eth clients, %v\n", err))
 	}
 
 	signer, err := clients.NewSigner(context, config.EthClient.PrivateKey, ethClient)
@@ -55,6 +56,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create signer, %v\n", err))
 	}
 
+	contractAddress := common.HexToAddress(config.SmartContract.Address)
 	contractAbi, err := abi.JSON(strings.NewReader(config.SmartContract.Abi))
 	if err != nil {
 		panic(fmt.Sprintf("cannot parse abi, %v\n", err))
@@ -66,21 +68,18 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	}
 	accountService := services.NewAccountService(&accountDao)
 	accountController := controllers.NewAccountController(accountService)
-	contractAddress := common.HexToAddress(config.SmartContract.Address)
 	accountTree, err := tree.InitAccountTree(context, ethClient, &contractAbi, &contractAddress, &config.Postgres)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create merkletree, %v\n", err))
 	}
 
-	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, wsClient, &contractAbi, config)
+	eventHandler, err := eventhandler.NewEventHandler(context, accountService, accountTree, wsClient, &contractAbi, &contractAddress, config.Accounts)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}
 
-	transctionService := services.NewTransactionService(accountService, accountTree, redis, signer, &contractAbi, context, config.Circuit.Path, &config.Redis.Keys)
-
+	transctionService := services.NewTransactionService(context, accountService, accountTree, redis, &config.Redis.Keys)
 	rollupPubSub := pubsubs.NewRollupPubSub(redis, signer, ethClient, &contractAbi, config.Redis.Channels.RollupCh, context, config.SmartContract.Address, config.Circuit.Path, &config.Redis)
-
 	transactionController := controllers.NewTransactionController(transctionService, &rollupPubSub)
 
 	return &ServiceContext{
@@ -88,6 +87,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		Redis:                 redis,
 		AccountTree:           accountTree,
 		EthClient:             ethClient,
+		RollUpAddress:         &contractAddress,
 		Abi:                   &contractAbi,
 		AccountService:        accountService,
 		AccountController:     accountController,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 
@@ -25,13 +26,13 @@ func SendTx(ctx *cli.Context, context context.Context, config *config.Config, sv
 	var accounts Accounts
 	for i, account := range config.Accounts {
 		if i == int(accountIndex) {
-			sender, err := NewUser(&account)
+			sender, err := NewUser(account)
 			if err != nil {
 				return err
 			}
 			accounts.Sender = sender
 		} else {
-			recipient, err := NewUser(&account)
+			recipient, err := NewUser(account)
 			if err != nil {
 				return err
 			}
@@ -69,10 +70,14 @@ func SendTx(ctx *cli.Context, context context.Context, config *config.Config, sv
 	if err != nil {
 		return err
 	}
-
 	defer resp.Body.Close()
 
-	log.Printf("Send tx success")
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	log.Println(string(body))
 
 	return nil
 }

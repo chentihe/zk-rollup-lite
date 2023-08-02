@@ -59,9 +59,16 @@ func (txInfo *TransactionInfo) Validate(fromAccountNonce int64) error {
 		return ErrAmountTooHigh
 	}
 
-	// fix the fee
-	if txInfo.Fee != Fee {
-		txInfo.Fee = Fee
+	if txInfo.Fee.Cmp(minFeeAmount) < 0 {
+		return ErrFeeAmountTooLow
+	}
+
+	if txInfo.Fee.Cmp(maxFeeAmount) > 0 {
+		return ErrFeeAmountTooHigh
+	}
+
+	if txInfo.Fee.Cmp(Fee) != 0 {
+		return ErrFeeAmount
 	}
 
 	if txInfo.Nonce < minNonce {

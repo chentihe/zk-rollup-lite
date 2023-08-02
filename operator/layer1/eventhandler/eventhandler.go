@@ -23,22 +23,18 @@ import (
 )
 
 type EventHandler struct {
-	context   context.Context
-	ethClient *ethclient.Client
-	query     ethereum.FilterQuery
-	// logs           chan types.Log
-	// sub            ethereum.Subscription
+	context        context.Context
+	ethClient      *ethclient.Client
+	query          ethereum.FilterQuery
 	abi            *abi.ABI
 	accountService *services.AccountService
 	accountTree    *tree.AccountTree
-	config         *config.Config
+	accounts       []*config.Account
 }
 
-func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI, config *config.Config) (*EventHandler, error) {
-	rollupAddress := common.HexToAddress(config.SmartContract.Address)
-
+func NewEventHandler(context context.Context, accountService *services.AccountService, accountTree *tree.AccountTree, ethClient *ethclient.Client, abi *abi.ABI, address *common.Address, accounts []*config.Account) (*EventHandler, error) {
 	query := ethereum.FilterQuery{
-		Addresses: []common.Address{rollupAddress},
+		Addresses: []common.Address{*address},
 	}
 
 	return &EventHandler{
@@ -48,7 +44,7 @@ func NewEventHandler(context context.Context, accountService *services.AccountSe
 		ethClient:      ethClient,
 		accountService: accountService,
 		accountTree:    accountTree,
-		config:         config,
+		accounts:       accounts,
 	}, nil
 }
 
@@ -154,7 +150,7 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 		}
 
 		// update account index on env.yaml
-		for i, account := range e.config.Accounts {
+		for i, account := range e.accounts {
 			var k babyjub.PrivateKey
 			_, err := hex.Decode(k[:], []byte(account.EddsaPrivKey))
 			if err != nil {
@@ -162,10 +158,10 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 			}
 
 			if strings.Compare(k.Public().String(), publicKey) == 0 {
-				e.config.Accounts[i].Index = user.Index.Int64()
+				e.accounts[i].Index = user.Index.Int64()
 			}
 		}
-		viper.Set("accounts", e.config.Accounts)
+		viper.Set("accounts", e.accounts)
 		viper.WriteConfig()
 	default:
 		accountDto.Balance = user.Balance
