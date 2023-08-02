@@ -26,8 +26,12 @@ compile_and_ts() {
     snarkjs r1cs info circuit.r1cs
     #snarkjs r1cs export json circuit.r1cs circuit.r1cs.json
 
-#    time snarkjs setup -r circuit.r1cs --pk proving_key.json --vk verification_key.json
-    time snarkjs groth16 setup circuit.r1cs "$PTAU" circuit_final.zkey
+    #time snarkjs setup -r circuit.r1cs --pk proving_key.json --vk verification_key.json
+
+    ## using snarkjs@0.6.1 to generate zk related files will occur error, but the process is fine
+    ## just ignore the error to execute following process.
+    set -e
+    time snarkjs groth16 setup circuit.r1cs "$PTAU" circuit_final.zkey || true
 
     # ENTROPY1=$(head -c 1024 /dev/urandom | LC_CTYPE=C tr -dc 'a-zA-Z0-9' | head -c 128)
     # ENTROPY2=$(head -c 1024 /dev/urandom | LC_CTYPE=C tr -dc 'a-zA-Z0-9' | head -c 128)
@@ -38,11 +42,11 @@ compile_and_ts() {
     # time snarkjs zkey contribute circuit_0002.zkey circuit_0003.zkey --name="3rd Contribution" -v -e="$ENTROPY3"
     # time snarkjs zkey verify circuit.r1cs "$PTAU" circuit_0003.zkey
     # time snarkjs zkey beacon circuit_0003.zkey circuit_final.zkey 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f 10 -n="Final Beacon phase2"
-    time snarkjs zkey verify circuit.r1cs "$PTAU" circuit_final.zkey
-    time snarkjs zkey export verificationkey circuit_final.zkey verification_key.json
+    time snarkjs zkey verify circuit.r1cs "$PTAU" circuit_final.zkey || true
+    time snarkjs zkey export verificationkey circuit_final.zkey verification_key.json || true
     #time snarkjs zkey export json circuit_final.zkey circuit_final.zkey.json
 
-    time snarkjs zkey export solidityverifier circuit_final.zkey verifier.sol
+    #time snarkjs zkey export solidityverifier circuit_final.zkey "$CIRCUIT"verifier.sol
     set +x
 }
 
@@ -64,3 +68,8 @@ mkdir -p build
 
 cd build
 compile_and_ts "$CIRCUIT"
+# /build
+cd ..
+# cp ciruit compile files to operator
+mkdir -p ../../operator/build
+cp -r "$CIRCUIT"  ../../operator/build

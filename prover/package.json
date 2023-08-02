@@ -22,7 +22,7 @@
     "ffjavascript": "^0.2.57",
     "maci-crypto": "^1.1.2",
     "mocha": "^10.2.0",
-    "snarkjs": "^0.6.11",
+    "snarkjs": "^0.6.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   }
