@@ -2,18 +2,19 @@ package config
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Server        Server        `mapstructure:"server"`
-	Postgres      Postgres      `mapstructure:"postgres"`
-	Redis         Redis         `mapstructure:"redis"`
-	SmartContract SmartContract `mapstructure:"smartcontract"`
-	EthClient     EthClient     `mapstructure:"ethclient"`
-	Accounts      []*Account    `mapstructure:"accounts"`
-	Circuit       Circuit       `mapstructure:"circuit"`
+	Server         Server         `mapstructure:"server"`
+	Postgres       Postgres       `mapstructure:"postgres"`
+	Redis          Redis          `mapstructure:"redis"`
+	SmartContracts SmartContracts `mapstructure:"smartcontracts"`
+	EthClient      EthClient      `mapstructure:"ethclient"`
+	Accounts       []*Account     `mapstructure:"accounts"`
+	Circuit        Circuit        `mapstructure:"circuit"`
 }
 
 type Server struct {
@@ -62,9 +63,16 @@ func (redis *Redis) Addr() string {
 	return fmt.Sprintf("%s:%s", redis.Host, redis.Port)
 }
 
-type SmartContract struct {
-	Address string `mapstructure:"address"`
-	Abi     string `mapstructure:"abi"`
+type SmartContracts struct {
+	Rollup           MetaData `mapstructure:"rollup"`
+	TxVerifier       MetaData `mapstructure:"txverifier"`
+	WithdrawVerifier MetaData `mapstructure:"withdrawverifier"`
+}
+
+type MetaData struct {
+	Abi      string `mapstructure:"abi"`
+	ByteCode string `mapstructure:"bytecode"`
+	Address  string `mapstructure:"address"`
 }
 
 type EthClient struct {
@@ -81,6 +89,11 @@ type Account struct {
 
 type Circuit struct {
 	Path string `mapstructure:"path"`
+}
+
+func (circuit *Circuit) SetAbsPath() {
+	root, _ := os.Getwd()
+	circuit.Path = root + circuit.Path
 }
 
 func LoadConfig(node string, paths ...string) (config *Config, err error) {
@@ -101,6 +114,8 @@ func LoadConfig(node string, paths ...string) (config *Config, err error) {
 	if err = viper.Unmarshal(&config); err != nil {
 		return nil, err
 	}
+
+	config.Circuit.SetAbsPath()
 
 	return config, nil
 }

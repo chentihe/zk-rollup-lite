@@ -78,24 +78,25 @@ services:
     networks:
       - anvil-network
 
-  app:
-    build: operator
-    environment:
-      POSTGRES_HOST: postgres
-      REDIS_HOST: redis
-      ANVIL_URL: anvil
-    ports:
-      - 8000:8000
-    networks:
-      - layer2
-      - postgres-network
-      - redis-network
-      - anvil-network
-    depends_on:
-      - postgres
-      - redis
-      - anvil
-    restart: on-failure:3
+  # app:
+  #   build: operator
+  #   environment:
+  #     POSTGRES_HOST: postgres
+  #     REDIS_HOST: redis
+  #     ANVIL_URL: anvil
+  #     ENV: docker
+  #   ports:
+  #     - 8000:8000
+  #   networks:
+  #     - layer2
+  #     - postgres-network
+  #     - redis-network
+  #     - anvil-network
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - anvil
+  #   restart: on-failure:3
 
   postgres:
     image: postgres:alpine

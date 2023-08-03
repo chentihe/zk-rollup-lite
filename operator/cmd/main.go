@@ -94,6 +94,7 @@ func main() {
 						panic(err)
 					}
 					svc := servicecontext.NewServiceContext(context, config)
+					svc.Deployer.Deploy()
 					return StartServer(context, config, svc)
 				},
 			},

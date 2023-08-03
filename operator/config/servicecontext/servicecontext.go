@@ -11,6 +11,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/db"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
+	"github.com/chentihe/zk-rollup-lite/operator/layer1/contracts"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/eventhandler"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
@@ -31,6 +32,7 @@ type ServiceContext struct {
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
+	Deployer              *contracts.Deployer
 	txManager             *txmanger.TxManager
 	eventHandler          *eventhandler.EventHandler
 }
@@ -56,8 +58,10 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create signer, %v\n", err))
 	}
 
-	contractAddress := common.HexToAddress(config.SmartContract.Address)
-	contractAbi, err := abi.JSON(strings.NewReader(config.SmartContract.Abi))
+	deployer := contracts.NewDeployer(ethClient, signer, &config.SmartContracts)
+
+	contractAddress := common.HexToAddress(config.SmartContracts.Rollup.Address)
+	contractAbi, err := abi.JSON(strings.NewReader(config.SmartContracts.Rollup.Abi))
 	if err != nil {
 		panic(fmt.Sprintf("cannot parse abi, %v\n", err))
 	}
@@ -92,6 +96,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		AccountService:        accountService,
 		AccountController:     accountController,
 		TransactionController: transactionController,
+		Deployer:              deployer,
 		txManager:             txManager,
 		eventHandler:          eventHandler,
 	}
