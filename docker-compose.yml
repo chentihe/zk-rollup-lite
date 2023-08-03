@@ -68,6 +68,34 @@ services:
   #   networks:
   #     priv-eth-net:
   #     net-stats:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry
+    command: anvil
+    environment:
+      ANVIL_IP_ADDR: 0.0.0.0
+    ports:
+      - 8545:8545
+    networks:
+      - anvil-network
+
+  app:
+    build: operator
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      ANVIL_URL: anvil
+    ports:
+      - 8000:8000
+    networks:
+      - layer2
+      - postgres-network
+      - redis-network
+      - anvil-network
+    depends_on:
+      - postgres
+      - redis
+      - anvil
+    restart: on-failure:3
 
   postgres:
     image: postgres:alpine
@@ -133,4 +161,8 @@ networks:
   redis-network:
     driver: bridge
   postgres-network:
+    driver: bridge
+  layer2:
+    driver: bridge
+  anvil-network:
     driver: bridge

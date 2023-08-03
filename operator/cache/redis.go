@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"os"
 
 	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/redis/go-redis/v9"
@@ -12,6 +13,11 @@ type RedisCache struct {
 }
 
 func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, error) {
+	host := os.Getenv("REDIS_HOST")
+	if host != "" {
+		config.Host = host
+	}
+
 	client := redis.NewClient(&redis.Options{
 		Addr:     config.Addr(),
 		Password: config.Password,
