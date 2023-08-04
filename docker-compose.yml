@@ -86,6 +86,7 @@ services:
       POSTGRES_HOST: postgres
       REDIS_HOST: redis
       ANVIL_URL: anvil
+      ENV: docker
     ports:
       - 8000:8000
     # app should allow theses network to have access

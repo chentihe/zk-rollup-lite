@@ -32,6 +32,7 @@ type ServiceContext struct {
 	AccountService        *services.AccountService
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
+	ContractController    *controllers.ContractController
 	Deployer              *contracts.Deployer
 	txManager             *txmanager.TxManager
 	eventHandler          *eventhandler.EventHandler
@@ -90,6 +91,12 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	transactionController := controllers.NewTransactionController(transctionService)
 	txManager := txmanager.NewTxManager(context, redis, signer, ethClient, &contractAbi, &contractAddress, config.Circuit.Path, &config.Redis)
 
+	contractService, err := services.NewContractService(context, ethClient, &contractAddress)
+	if err != nil {
+		panic(fmt.Sprintf("cannot create contract service, %v\n", err))
+	}
+	contractController := controllers.NewContractController(contractService)
+
 	return &ServiceContext{
 		PostgresDB:            db,
 		Redis:                 redis,
@@ -100,6 +107,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		AccountService:        accountService,
 		AccountController:     accountController,
 		TransactionController: transactionController,
+		ContractController:    contractController,
 		Deployer:              deployer,
 		txManager:             txManager,
 		eventHandler:          eventHandler,

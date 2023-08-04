@@ -94,7 +94,9 @@ func main() {
 						panic(err)
 					}
 					svc := servicecontext.NewServiceContext(context, config)
-					svc.Deployer.Deploy()
+					if err := svc.Deployer.Deploy(); err != nil {
+						return err
+					}
 					return StartServer(context, config, svc)
 				},
 			},

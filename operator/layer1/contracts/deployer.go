@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"log"
 	"math/big"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/viper"
 )
@@ -28,6 +30,7 @@ func NewDeployer(ethClient *ethclient.Client, signer *clients.Signer, smartContr
 }
 
 func (d *Deployer) Deploy() error {
+	log.Println("Start deploying contracts...")
 	context := context.Background()
 
 	txVerifier := d.smartContracts.TxVerifier
@@ -54,13 +57,11 @@ func (d *Deployer) Deploy() error {
 	if err = d.ethClient.SendTransaction(context, verifierTx); err != nil {
 		return err
 	}
-	receipt, err := d.ethClient.TransactionReceipt(context, verifierTx.Hash())
-	if err != nil {
-		return err
-	}
+	d.ethClient.TransactionReceipt(context, verifierTx.Hash())
 
-	// txVerifierAddress := crypto.CreateAddress(d.signer.Address, verifierTx.Nonce())
-	d.smartContracts.TxVerifier.Address = receipt.ContractAddress.String()
+	txVerifierAddress := crypto.CreateAddress(d.signer.Address, verifierTx.Nonce())
+	d.smartContracts.TxVerifier.Address = txVerifierAddress.String()
+	log.Printf("Deployed tx verifier: %s\n", txVerifierAddress.String())
 
 	withdrawVerifier := d.smartContracts.WithdrawVerifier
 
@@ -86,13 +87,11 @@ func (d *Deployer) Deploy() error {
 	if err = d.ethClient.SendTransaction(context, withdrawTx); err != nil {
 		return err
 	}
-	receipt, err = d.ethClient.TransactionReceipt(context, withdrawTx.Hash())
-	if err != nil {
-		return err
-	}
+	d.ethClient.TransactionReceipt(context, withdrawTx.Hash())
 
-	// withdrawVerifierAddress := crypto.CreateAddress(d.signer.Address, withdrawTx.Nonce())
-	d.smartContracts.WithdrawVerifier.Address = receipt.ContractAddress.String()
+	withdrawVerifierAddress := crypto.CreateAddress(d.signer.Address, withdrawTx.Nonce())
+	d.smartContracts.WithdrawVerifier.Address = withdrawVerifierAddress.String()
+	log.Printf("Deployed withdraw verifier: %s\n", withdrawVerifierAddress.String())
 
 	rollup := d.smartContracts.Rollup
 
@@ -102,7 +101,7 @@ func (d *Deployer) Deploy() error {
 	}
 
 	// deploy contract uses contructor, just passing the constructor args
-	data, err = contractAbi.Pack("", d.smartContracts.TxVerifier.Address, d.smartContracts.WithdrawVerifier.Address)
+	data, err = contractAbi.Pack("", txVerifierAddress, withdrawVerifierAddress)
 	if err != nil {
 		return err
 	}
@@ -120,14 +119,12 @@ func (d *Deployer) Deploy() error {
 	if err = d.ethClient.SendTransaction(context, rollupTx); err != nil {
 		return err
 	}
-	receipt, err = d.ethClient.TransactionReceipt(context, rollupTx.Hash())
-	if err != nil {
-		return err
-	}
+	d.ethClient.TransactionReceipt(context, rollupTx.Hash())
 
 	// the result of the contract address is the same between receipt and crypto.CreateAddress
-	// rollupAddress := crypto.CreateAddress(d.signer.Address, rollupTx.Nonce())
-	d.smartContracts.Rollup.Address = receipt.ContractAddress.String()
+	rollupAddress := crypto.CreateAddress(d.signer.Address, rollupTx.Nonce())
+	d.smartContracts.Rollup.Address = rollupAddress.String()
+	log.Printf("Deployed rollup: %s\n", rollupAddress.String())
 
 	// update the env.yaml for the deposit / withdraw cli
 	viper.Set("smartcontracts", d.smartContracts)
