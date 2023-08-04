@@ -101,8 +101,10 @@ There are some command you can try to interact with the demo app.
 There are only two mock users to choose, 0 for the first user, 1 for the second user.
 
 The default balance for both users is 1000ETH.
+
+
 ```shell
-~/cmd: go run main.go deposit --account 0 --amount 1
+~/cmd: go run main.go deposit --account 0 --amount 1 # 1 for 1ETH
 ```
 ### 6.2 Withdraw
 Before you withdraw the ethers from layer2, you need to check the balance first, then type how many ethers you want to withdraw.
