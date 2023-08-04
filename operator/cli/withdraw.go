@@ -9,6 +9,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/config"
 	"github.com/chentihe/zk-rollup-lite/operator/config/servicecontext"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
+	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/urfave/cli/v2"
 )
@@ -28,7 +29,7 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 		return err
 	}
 
-	withdrawAmount := ToWei(ctx.String(flags.AmountFlag.Name), 18)
+	withdrawAmount := txutils.ToWei(ctx.String(flags.AmountFlag.Name), 18)
 	nullifier := babyjub.NewRandPrivKey()
 	signature := user.privateKey.SignMimc7(babyjub.SkToBigInt(&nullifier))
 

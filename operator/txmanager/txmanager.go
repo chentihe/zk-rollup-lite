@@ -1,4 +1,4 @@
-package txmanger
+package txmanager
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func (txManager *TxManager) Listening() {
 	go func() {
 		for {
 			<-timer.C
-			// 1.1 get finished tx amounts from redis
+			// 1.1 get total tx amount from redis
 			value, err := txManager.redisCache.Get(txManager.context, txManager.keys.LastInsertedKey)
 			if err != nil {
 				log.Printf("Get last inserted tx num err: %v\n", err)
@@ -65,7 +65,7 @@ func (txManager *TxManager) Listening() {
 				log.Printf("Get last inserted tx num err: %v\n", err)
 			}
 
-			// 1.2 get rolluped tx amounts from redis
+			// 1.2 get rolluped tx amount from redis
 			value, err = txManager.redisCache.Get(txManager.context, txManager.keys.RollupedTxsKey)
 			if err != nil {
 				log.Printf("Get rolluped tx num err: %v\n", err)
@@ -85,7 +85,10 @@ func (txManager *TxManager) Listening() {
 			if lastInsertedTx-rollupedTxs >= batchSize {
 				var rolluped []string
 				for i := rollupedTxs; i <= lastInsertedTx; {
-					txManager.Rollup(&rolluped, i+1, i+batchSize)
+					if err = txManager.Rollup(&rolluped, i+1, i+batchSize); err != nil {
+						log.Printf("Rollup err: %v\n", err)
+						break
+					}
 					i += batchSize
 					if lastInsertedTx <= i || lastInsertedTx-i == 1 {
 						break
@@ -100,13 +103,13 @@ func (txManager *TxManager) Listening() {
 	}()
 }
 
-func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) {
+func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) error {
 	var rollupInputs circuits.RollupInputs
 	for i := start; i <= end; i++ {
 		var tx circuits.RollupTx
 		object, err := txManager.redisCache.Get(txManager.context, strconv.Itoa(i))
 		if err != nil {
-			log.Printf("Get rollup tx err: %v", err)
+			return err
 		}
 
 		json.Unmarshal([]byte(object), &tx)
@@ -116,45 +119,46 @@ func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) {
 
 	circuitInput, err := rollupInputs.InputsMarshal()
 	if err != nil {
-		log.Printf("Circuit inputs marshal err: %v", err)
+		return err
 	}
 
 	proof, err := circuits.GenerateGroth16Proof(circuitInput, txManager.circuitPath)
 	if err != nil {
-		log.Printf("Generate proof err: %v", err)
+		return err
 	}
 
 	if err = circuits.VerifierGroth16(proof, txManager.circuitPath); err != nil {
-		log.Printf("Verify proof err: %v", err)
+		return err
 	}
 
 	var rollupOutputs circuits.RollupOutputs
 	if err = rollupOutputs.OutputUnmarshal(proof); err != nil {
-		log.Printf("Circuit ouputs unmarshal err: %v", err)
+		return err
 	}
 
 	data, err := txManager.abi.Pack("rollUp", rollupOutputs.Proof.A, rollupOutputs.Proof.B, rollupOutputs.Proof.C, rollupOutputs.PublicSignals)
 	if err != nil {
-		log.Printf("Cannot pack rollup call data: %v\n", err)
+		return err
 	}
 
 	tx, err := txManager.signer.GenerateLegacyTx(txManager.contractAddress, data, big.NewInt(0))
 	if err != nil {
-		log.Printf("Send tx err: %v\n", err)
+		return err
 	}
 
 	signTx, err := txManager.signer.SignTx(tx)
 	if err != nil {
-		log.Printf("Sign tx err: %v\n", err)
+		return err
 	}
 
 	if err = txManager.ethclient.SendTransaction(txManager.context, signTx); err != nil {
-		log.Printf("Send tx err: %v\n", err)
+		return err
 	}
 
 	if err = txManager.redisCache.Set(txManager.context, txManager.keys.RollupedTxsKey, strconv.Itoa(end)); err != nil {
-		log.Printf("Update redis err: %v\n", err)
+		return err
 	}
 
 	log.Printf("Rollup success: %v\n", signTx.Hash().String())
+	return nil
 }

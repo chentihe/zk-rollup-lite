@@ -38,6 +38,7 @@ func DecodePublicKeyFromString(comp string) (*babyjub.PublicKey, error) {
 	return publicKeyComp.Decompress()
 }
 
+// StringifyPublicKey to format the public key for the inputs of the circuit
 func StringifyPublicKey(comp string) (*[2]string, error) {
 	publicKey, err := DecodePublicKeyFromString(comp)
 	if err != nil {

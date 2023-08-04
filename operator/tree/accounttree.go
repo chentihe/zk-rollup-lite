@@ -35,8 +35,8 @@ func InitAccountTree(context context.Context, ethClient *ethclient.Client, abi *
 	}, nil
 }
 
-// need to restore the mt before interact with the mt,
-// otherwise the app cannot get the latest merkle root
+// RestoreTree get the lastest status of the mt
+// to make sure the consistency of the mt
 func (accountTree *AccountTree) RestoreTree() (*merkletree.MerkleTree, error) {
 	treeStroage := sql.NewSqlStorage(accountTree.pgxPool, 1)
 	return merkletree.NewMerkleTree(accountTree.context, treeStroage, mtDepth)
@@ -96,6 +96,7 @@ func (accountTree *AccountTree) GetPathByAccount(account *models.AccountDto) ([]
 	return siblings, nil
 }
 
+// GenerateCircomVerifierProof to proof that the account is on the merkle tree
 func (accountTree *AccountTree) GenerateCircomVerifierProof(account *models.AccountDto) (*merkletree.CircomVerifierProof, error) {
 	mt, err := accountTree.RestoreTree()
 	if err != nil {

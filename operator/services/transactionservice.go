@@ -67,6 +67,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 
+	// set recipient data into rollup tx
 	recipientPathElements, err := service.accountTree.GetPathByAccount(toAccount)
 	if err != nil {
 		return err
@@ -108,6 +109,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 
+	// update the value of last inserted key
 	value, err := service.redisCache.Get(service.context, service.keys.LastInsertedKey)
 	if err != nil {
 		return err
@@ -118,13 +120,13 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 
-	// no pending transactions to roll up
 	lastInsertedTx++
 	serializedTx, err := json.Marshal(redisTx)
 	if err != nil {
 		return err
 	}
 
+	// save tx into redis
 	if err = service.redisCache.Set(service.context, strconv.Itoa(lastInsertedTx), serializedTx); err != nil {
 		return err
 	}

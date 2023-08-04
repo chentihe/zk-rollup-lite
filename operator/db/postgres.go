@@ -9,6 +9,7 @@ import (
 )
 
 func InitializeDB(config *config.Postgres) (*gorm.DB, error) {
+	// for docker image to retrieve postgres host
 	host := os.Getenv("POSTGRES_HOST")
 	if host != "" {
 		config.Host = host

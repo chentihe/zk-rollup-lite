@@ -28,8 +28,8 @@ compile_and_ts() {
 
     #time snarkjs setup -r circuit.r1cs --pk proving_key.json --vk verification_key.json
 
-    ## using snarkjs@0.6.1 to generate zk related files will occur error, but the process is fine
-    ## just ignore the error to execute following process.
+    ## -------- using snarkjs@0.6.1 to generate zk related files will occur error, but it doesn't effect the result --------
+    ## -------- just ignore the error to execute following process. --------
     set -e
     time snarkjs groth16 setup circuit.r1cs "$PTAU" circuit_final.zkey || true
 

@@ -15,7 +15,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/eventhandler"
 	"github.com/chentihe/zk-rollup-lite/operator/services"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
-	txmanger "github.com/chentihe/zk-rollup-lite/operator/txmanager"
+	"github.com/chentihe/zk-rollup-lite/operator/txmanager"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -33,7 +33,7 @@ type ServiceContext struct {
 	AccountController     *controllers.AccountController
 	TransactionController *controllers.TransactionController
 	Deployer              *contracts.Deployer
-	txManager             *txmanger.TxManager
+	txManager             *txmanager.TxManager
 	eventHandler          *eventhandler.EventHandler
 }
 
@@ -48,16 +48,20 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot initialize cache, %v\n", err))
 	}
 
+	// ethClient for the interaction with EVM use
+	// wsClient for event handler use
 	ethClient, wsClient, err := clients.InitEthClient(&config.EthClient)
 	if err != nil {
 		panic(fmt.Sprintf("cannot initialize eth clients, %v\n", err))
 	}
 
+	// this signer is to rollup layer2 tx and deploy contracts
 	signer, err := clients.NewSigner(context, config.EthClient.PrivateKey, ethClient)
 	if err != nil {
 		panic(fmt.Sprintf("cannot create signer, %v\n", err))
 	}
 
+	// deploy tx verifier, withdraw verifier, rollup contracts
 	deployer := contracts.NewDeployer(ethClient, signer, &config.SmartContracts)
 
 	contractAddress := common.HexToAddress(config.SmartContracts.Rollup.Address)
@@ -84,7 +88,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 
 	transctionService := services.NewTransactionService(context, accountService, accountTree, redis, &config.Redis.Keys)
 	transactionController := controllers.NewTransactionController(transctionService)
-	txManager := txmanger.NewTxManager(context, redis, signer, ethClient, &contractAbi, &contractAddress, config.Circuit.Path, &config.Redis)
+	txManager := txmanager.NewTxManager(context, redis, signer, ethClient, &contractAbi, &contractAddress, config.Circuit.Path, &config.Redis)
 
 	return &ServiceContext{
 		PostgresDB:            db,

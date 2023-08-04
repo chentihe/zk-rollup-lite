@@ -11,6 +11,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/daos"
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/chentihe/zk-rollup-lite/operator/models"
+	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 	"github.com/urfave/cli/v2"
 )
 
@@ -27,7 +28,7 @@ func Deposit(ctx *cli.Context, context context.Context, config *config.Config, s
 		return err
 	}
 
-	depositAmount := ToWei(ctx.String(flags.AmountFlag.Name), 18)
+	depositAmount := txutils.ToWei(ctx.String(flags.AmountFlag.Name), 18)
 
 	comp := user.PublicKey.String()
 

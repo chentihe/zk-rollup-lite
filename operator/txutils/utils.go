@@ -1,4 +1,4 @@
-package cli
+package txutils
 
 import (
 	"math/big"

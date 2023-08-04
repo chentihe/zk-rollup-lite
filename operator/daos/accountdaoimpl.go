@@ -70,6 +70,7 @@ func (dao *AccountDaoImpl) UpdateAccount(account *models.Account) (err error) {
 }
 
 func (dao *AccountDaoImpl) DeleteAccountByIndex(index int64) error {
+	// Unscoped will delete the data permanently
 	dbTx := dao.DB.
 		Where("account_index = ?", index).
 		Unscoped().

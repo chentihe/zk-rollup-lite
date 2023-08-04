@@ -13,6 +13,7 @@ type RedisCache struct {
 }
 
 func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, error) {
+	// for docker image to retrieve redis host
 	host := os.Getenv("REDIS_HOST")
 	if host != "" {
 		config.Host = host
@@ -33,6 +34,7 @@ func NewRedisCache(context context.Context, config *config.Redis) (*RedisCache, 
 	return cache, nil
 }
 
+// LastInsertedKey & RollupedTxsKey should exist in redis before the creation of L2 tx
 func (cache *RedisCache) initKeys(context context.Context, keys *config.Keys) {
 	if _, err := cache.Get(context, keys.LastInsertedKey); err != nil {
 		cache.Set(context, keys.LastInsertedKey, "0")
@@ -52,6 +54,7 @@ func (cache *RedisCache) Get(context context.Context, key string) (string, error
 }
 
 func (cache *RedisCache) Set(context context.Context, key string, value interface{}) error {
+	// -1 means no expiration for cache data
 	return cache.Client.Set(context, key, value, -1).Err()
 }
 

@@ -1,6 +1,7 @@
 package clients
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/chentihe/zk-rollup-lite/operator/config"
@@ -8,10 +9,11 @@ import (
 )
 
 func InitEthClient(config *config.EthClient) (*ethclient.Client, *ethclient.Client, error) {
+	// for docker image to retrieve anvil host
 	url := os.Getenv("ANVIL_URL")
 	if url != "" {
-		config.RPCUrl = "http://" + url + ":8545"
-		config.WSUrl = "ws://" + url + ":8545"
+		config.RPCUrl = fmt.Sprintf("http://%s:8545", url)
+		config.WSUrl = fmt.Sprintf("ws://%s:8545", url)
 	}
 
 	rpcClient, err := ethclient.Dial(config.RPCUrl)

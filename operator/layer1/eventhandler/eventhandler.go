@@ -150,6 +150,7 @@ func (e *EventHandler) afterDeposit(vLog *types.Log) error {
 		}
 
 		// update account index on env.yaml
+		// for send tx use
 		for i, account := range e.accounts {
 			var k babyjub.PrivateKey
 			_, err := hex.Decode(k[:], []byte(account.EddsaPrivKey))

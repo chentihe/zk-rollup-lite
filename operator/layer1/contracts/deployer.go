@@ -9,7 +9,6 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/layer1/clients"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/spf13/viper"
 )
@@ -52,11 +51,16 @@ func (d *Deployer) Deploy() error {
 	if err != nil {
 		return err
 	}
-	d.ethClient.SendTransaction(context, verifierTx)
-	d.ethClient.TransactionReceipt(context, verifierTx.Hash())
+	if err = d.ethClient.SendTransaction(context, verifierTx); err != nil {
+		return err
+	}
+	receipt, err := d.ethClient.TransactionReceipt(context, verifierTx.Hash())
+	if err != nil {
+		return err
+	}
 
-	txVerifierAddress := crypto.CreateAddress(d.signer.Address, verifierTx.Nonce())
-	d.smartContracts.TxVerifier.Address = txVerifierAddress.String()
+	// txVerifierAddress := crypto.CreateAddress(d.signer.Address, verifierTx.Nonce())
+	d.smartContracts.TxVerifier.Address = receipt.ContractAddress.String()
 
 	withdrawVerifier := d.smartContracts.WithdrawVerifier
 
@@ -79,11 +83,16 @@ func (d *Deployer) Deploy() error {
 	if err != nil {
 		return err
 	}
-	d.ethClient.SendTransaction(context, withdrawTx)
-	d.ethClient.TransactionReceipt(context, withdrawTx.Hash())
+	if err = d.ethClient.SendTransaction(context, withdrawTx); err != nil {
+		return err
+	}
+	receipt, err = d.ethClient.TransactionReceipt(context, withdrawTx.Hash())
+	if err != nil {
+		return err
+	}
 
-	withdrawVerifierAddress := crypto.CreateAddress(d.signer.Address, withdrawTx.Nonce())
-	d.smartContracts.WithdrawVerifier.Address = withdrawVerifierAddress.String()
+	// withdrawVerifierAddress := crypto.CreateAddress(d.signer.Address, withdrawTx.Nonce())
+	d.smartContracts.WithdrawVerifier.Address = receipt.ContractAddress.String()
 
 	rollup := d.smartContracts.Rollup
 
@@ -92,11 +101,13 @@ func (d *Deployer) Deploy() error {
 		return err
 	}
 
-	data, err = contractAbi.Pack("", txVerifierAddress, withdrawVerifierAddress)
+	// deploy contract uses contructor, just passing the constructor args
+	data, err = contractAbi.Pack("", d.smartContracts.TxVerifier.Address, d.smartContracts.WithdrawVerifier.Address)
 	if err != nil {
 		return err
 	}
 
+	// call data consist of the contract bytecode and constructor args
 	tx, err = d.signer.GenerateLegacyTx(nil, append(common.FromHex(rollup.ByteCode), data...), big.NewInt(0))
 	if err != nil {
 		return err
@@ -106,11 +117,19 @@ func (d *Deployer) Deploy() error {
 	if err != nil {
 		return err
 	}
-	d.ethClient.SendTransaction(context, rollupTx)
-	d.ethClient.TransactionReceipt(context, rollupTx.Hash())
+	if err = d.ethClient.SendTransaction(context, rollupTx); err != nil {
+		return err
+	}
+	receipt, err = d.ethClient.TransactionReceipt(context, rollupTx.Hash())
+	if err != nil {
+		return err
+	}
 
-	rollupAddress := crypto.CreateAddress(d.signer.Address, rollupTx.Nonce())
-	d.smartContracts.Rollup.Address = rollupAddress.String()
+	// the result of the contract address is the same between receipt and crypto.CreateAddress
+	// rollupAddress := crypto.CreateAddress(d.signer.Address, rollupTx.Nonce())
+	d.smartContracts.Rollup.Address = receipt.ContractAddress.String()
+
+	// update the env.yaml for the deposit / withdraw cli
 	viper.Set("smartcontracts", d.smartContracts)
 	viper.WriteConfig()
 	return nil

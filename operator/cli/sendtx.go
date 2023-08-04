@@ -40,7 +40,7 @@ func SendTx(ctx *cli.Context, context context.Context, config *config.Config, sv
 		}
 	}
 
-	transferAmount := ToWei(ctx.String(flags.AmountFlag.Name), 18)
+	transferAmount := txutils.ToWei(ctx.String(flags.AmountFlag.Name), 18)
 
 	accountDto, err := svc.AccountService.GetAccountByPublicKey(accounts.Sender.PublicKey.String())
 	if err != nil {

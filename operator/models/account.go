@@ -24,6 +24,8 @@ type AccountDto struct {
 	Balance      *big.Int
 }
 
+// Copy the dto to have the current status,
+// otherwise the balance may be modify
 func (dto *AccountDto) Copy() *AccountDto {
 	balance := new(big.Int)
 	balance.SetString(dto.Balance.String(), 10)
