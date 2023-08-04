@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -93,7 +94,15 @@ type Circuit struct {
 
 func (circuit *Circuit) SetAbsPath() {
 	root, _ := os.Getwd()
-	circuit.Path = root + circuit.Path
+	parent := filepath.Dir(root)
+
+	env := os.Getenv("ENV")
+
+	if env == "" {
+		circuit.Path = parent + circuit.Path
+	} else {
+		circuit.Path = root + circuit.Path
+	}
 }
 
 func LoadConfig(node string, paths ...string) (config *Config, err error) {

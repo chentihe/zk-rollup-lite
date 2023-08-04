@@ -9,4 +9,5 @@ func RegisterRouters(router *gin.Engine, svc *servicecontext.ServiceContext) {
 	v1 := router.Group("/api/v1")
 	AddAccountRoutes(v1, svc.AccountController)
 	AddTransactionRoutes(v1, svc.TransactionController)
+	AddContractRoutes(v1, svc.ContractController)
 }
