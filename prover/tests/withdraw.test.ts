@@ -10,7 +10,7 @@ describe("withdraw.circom", () => {
         const circuit = await wasm_tester(
             path.join(__dirname, "../circuits", "withdraw.circom"),
             {
-                output: path.join(__dirname, "../build", "withdraw"),
+                output: path.join(__dirname, "../../operator/build", "withdraw"),
                 recompile: true,
                 reduceConstraints: false
             }

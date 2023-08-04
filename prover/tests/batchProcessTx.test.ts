@@ -19,7 +19,7 @@ describe("batchProcessTx.circom", () => {
         const circuit = await wasm_tester(
             path.join(__dirname, "circuits", "batchProcessTxTest.circom"),
             {
-                output: path.join(__dirname, "../build", "batchProcessTxTest"),
+                output: path.join(__dirname, "../../operator/build", "batchProcessTxTest"),
                 recompile: true,
                 reduceConstraints: false,
             }

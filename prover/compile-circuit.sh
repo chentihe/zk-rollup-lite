@@ -64,12 +64,7 @@ PTAU="$(pwd)/$2"
 PATH="$(pwd)/node_modules/.bin:$PATH"
 
 # npm ci
-mkdir -p build
+mkdir -p ../operator/build
 
-cd build
+cd ../operator/build
 compile_and_ts "$CIRCUIT"
-# /build
-cd ..
-# cp ciruit compile files to operator
-mkdir -p ../../operator/build
-cp -r "$CIRCUIT"  ../../operator/build
