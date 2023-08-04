@@ -65,7 +65,18 @@ We can navigate to postgres gui and redis gui to check the database.
 - Redis commander: http://localhost:8081
     - username: root
     - password: qwerty
-## 4. Do a rollup
+## 4. APIs
+There are apis to query the account and the contract.
+### Accounts
+- **Query the account info:** http://localhost:8000/api/v1/accounts/{id}
+    - id: 1, 2
+### Rollup Contract
+- **Query the user info:** http://localhost:8000/api/v1/contract/users/{id}
+    - id: 1, 2
+- **Query the contract balance:** http://localhost:8000/api/v1/contract/balance
+- **Query the state root on the contract:** http://localhost:8000/api/v1/contract/root
+
+## 5. Do a rollup
 There are two mock users on [env.yaml](https://github.com/chentihe/zk-rollup-lite/blob/main/operator/config/env.example.anvil.yaml#L1), and a rollup script to execute 2 rollup transactions.
 
 Open a new terminal and navigate to operator folder to execute the rollup script.
@@ -80,25 +91,36 @@ zk-rollup-lite-app-1 | 2023/08/04 03:31:27 Rollup success: 0x3327a5267c77fc272ad
 ```
 
 You will see that the value of **last-inserted** is 5 and the value of **rolluped-txs** is 4 on redis commander, because this app only rollup 2 transactions at once. The 5th transaction will be rolluped once the new transaction is created.
-## 5. Try it yourself
+## 6. Try it yourself
 First, navigate to cmd folder.
 ```shell
 ~/operator: cd cmd
 ```
 There are some command you can try to interact with the demo app.
-### 5.1 Deposit
+### 6.1 Deposit
 There are only two mock users to choose, 0 for the first user, 1 for the second user.
 
 The default balance for both users is 1000ETH.
 ```shell
 ~/cmd: go run main.go deposit --account 0 --amount 1
 ```
-### 5.2 Withdraw
+### 6.2 Withdraw
 Before you withdraw the ethers from layer2, you need to check the balance first, then type how many ethers you want to withdraw.
+```shell
+~/cmd: curl -s -X GET localhost:8000/api/v1/accounts/1
+
+{
+    "AccountIndex": 1,
+    "PublicKey": "c433f7a696b7aa3a5224efb3993baf0ccd9e92eecee0c29a3f6c8208a9e81d9e",
+    "L1Address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "Nonce": 0,
+    "Balance": 10000000000000000000
+}
+```
 ```shell
 ~/cmd: go run main.go withdraw --account 0 --amount 0.2
 ```
-### 5.3 Transfer ethers on layer2
+### 6.3 Transfer ethers on layer2
 In this demo app, you are only able to transfer ethers to the other user. You should notice that every transaction on layer2 may incur the transaction fee to the layer2 platform, hence, we will charge 0.05ETH on every transction.
 ```shell
 ~/cmd: go run main.go sendtx --account 0 --amount 0.5
