@@ -1,5 +1,5 @@
 pragma circom  2.1.5;
 
-include "batchProcessTx.circom";
+include "processTx.circom";
 
-component main {public [balanceTreeRoots, txData]} = BatchProcessTx(2, 6);
+component main = ProcessTx(6);

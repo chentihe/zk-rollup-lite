@@ -18,17 +18,20 @@ func NewAccountController(accountService *services.AccountService) *AccountContr
 	}
 }
 
+// TODO: write a handle err func
 func (c *AccountController) GetAccountByIndex(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	index, err := strconv.Atoi(id)
 	if err != nil {
-		ctx.IndentedJSON(http.StatusBadRequest, err)
+		HandleError(ctx, http.StatusBadRequest, err)
+		return
 	}
 
 	res, err := c.AccountService.GetAccountByIndex(int64(index))
 	if err != nil {
-		ctx.IndentedJSON(http.StatusNotFound, err)
+		HandleError(ctx, http.StatusNotFound, err)
+		return
 	}
 
 	ctx.IndentedJSON(http.StatusOK, res)

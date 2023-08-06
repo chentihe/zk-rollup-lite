@@ -87,7 +87,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 		panic(fmt.Sprintf("cannot create event handler, %v\n", err))
 	}
 
-	transctionService := services.NewTransactionService(context, accountService, accountTree, redis, &config.Redis.Keys)
+	transctionService := services.NewTransactionService(context, accountService, accountTree, redis, &config.Redis.Keys, config.Circuit.Path)
 	transactionController := controllers.NewTransactionController(transctionService)
 	txManager := txmanager.NewTxManager(context, redis, signer, ethClient, &contractAbi, &contractAddress, config.Circuit.Path, &config.Redis)
 

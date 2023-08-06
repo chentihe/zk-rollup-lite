@@ -24,12 +24,14 @@ func (c *ContractController) GetUserByIndex(ctx *gin.Context) {
 
 	index, err := strconv.Atoi(id)
 	if err != nil {
-		ctx.IndentedJSON(http.StatusBadRequest, err)
+		HandleError(ctx, http.StatusBadRequest, err)
+		return
 	}
 
 	res, err := c.ContractService.GetUserByIndex(big.NewInt(int64(index)))
 	if err != nil {
-		ctx.IndentedJSON(http.StatusNotFound, err)
+		HandleError(ctx, http.StatusNotFound, err)
+		return
 	}
 
 	ctx.IndentedJSON(http.StatusOK, res)
@@ -38,7 +40,8 @@ func (c *ContractController) GetUserByIndex(ctx *gin.Context) {
 func (c *ContractController) GetContractBalance(ctx *gin.Context) {
 	res, err := c.ContractService.GetContractBalance()
 	if err != nil {
-		ctx.IndentedJSON(http.StatusInternalServerError, err)
+		HandleError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
 	ctx.IndentedJSON(http.StatusOK, res)
@@ -47,7 +50,8 @@ func (c *ContractController) GetContractBalance(ctx *gin.Context) {
 func (c *ContractController) GetStateRoot(ctx *gin.Context) {
 	res, err := c.ContractService.GetStateRoot()
 	if err != nil {
-		ctx.IndentedJSON(http.StatusInternalServerError, err)
+		HandleError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
 	ctx.IndentedJSON(http.StatusOK, res)

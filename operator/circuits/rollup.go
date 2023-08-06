@@ -5,29 +5,13 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
-	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 	"github.com/iden3/go-merkletree-sql/v2"
 	"github.com/iden3/go-rapidsnark/types"
 )
 
 type RollupInputs struct {
-	Txs []*RollupTx
-}
-
-type RollupTx struct {
-	Tx                                  *txutils.TransactionInfo
-	Root                                *merkletree.Hash
-	Sender                              *AccountInfo
-	Recipient                           *AccountInfo
-	IntermediateBalanceTreeRoot         *merkletree.Hash
-	IntermediateBalanceTreePathElements []*merkletree.Hash
-}
-
-type AccountInfo struct {
-	Account      models.AccountDto
-	PathElements []*merkletree.Hash
+	Txs []*ProcessTxInputs
 }
 
 type rollupCircuitInputs struct {

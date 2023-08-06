@@ -18,21 +18,25 @@ type TransactionService struct {
 	redisCache     *cache.RedisCache
 	context        context.Context
 	keys           *config.Keys
+	circuitPath    string
 }
 
-func NewTransactionService(context context.Context, accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, keys *config.Keys) *TransactionService {
+func NewTransactionService(context context.Context, accountService *AccountService, tree *tree.AccountTree, cache *cache.RedisCache, keys *config.Keys, circuitPath string) *TransactionService {
 	return &TransactionService{
 		accountService: accountService,
 		accountTree:    tree,
 		redisCache:     cache,
 		context:        context,
 		keys:           keys,
+		circuitPath:    circuitPath + "/tx",
 	}
 }
 
+// TODO: Should create a temp mt / account table,
+// if tx is invalid, mt and account table mustn't be updated
 func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) error {
-	// create a rollup tx object to save into redis
-	redisTx := circuits.RollupTx{
+	// create a process tx inputs object to save into redis
+	processTxInputs := &circuits.ProcessTxInputs{
 		Tx:   tx,
 		Root: service.accountTree.GetRoot(),
 	}
@@ -57,7 +61,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	if err != nil {
 		return err
 	}
-	redisTx.Sender = &circuits.AccountInfo{
+	processTxInputs.Sender = &circuits.AccountInfo{
 		Account:      *fromAccount.Copy(),
 		PathElements: senderPathElements,
 	}
@@ -72,7 +76,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	if err != nil {
 		return err
 	}
-	redisTx.Recipient = &circuits.AccountInfo{
+	processTxInputs.Recipient = &circuits.AccountInfo{
 		Account:      *toAccount.Copy(),
 		PathElements: recipientPathElements,
 	}
@@ -95,8 +99,8 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	if err != nil {
 		return err
 	}
-	redisTx.IntermediateBalanceTreePathElements = intermediateBalanceTreePathElements
-	redisTx.IntermediateBalanceTreeRoot = service.accountTree.GetRoot()
+	processTxInputs.IntermediateBalanceTreePathElements = intermediateBalanceTreePathElements
+	processTxInputs.IntermediateBalanceTreeRoot = service.accountTree.GetRoot()
 
 	// update recipient balance
 	toAccount.Balance = toAccount.Balance.Add(toAccount.Balance, tx.Amount)
@@ -106,6 +110,20 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	}
 
 	if _, err := service.accountTree.UpdateAccount(toAccount); err != nil {
+		return err
+	}
+
+	circuitInput, err := processTxInputs.InputsMarshal()
+	if err != nil {
+		return err
+	}
+
+	proof, err := circuits.GenerateGroth16Proof(circuitInput, service.circuitPath)
+	if err != nil {
+		return err
+	}
+
+	if err = circuits.VerifierGroth16(proof, service.circuitPath); err != nil {
 		return err
 	}
 
@@ -121,7 +139,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	}
 
 	lastInsertedTx++
-	serializedTx, err := json.Marshal(redisTx)
+	serializedTx, err := json.Marshal(processTxInputs)
 	if err != nil {
 		return err
 	}

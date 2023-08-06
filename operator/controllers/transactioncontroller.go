@@ -21,12 +21,14 @@ func NewTransactionController(transactionService *services.TransactionService) *
 func (c *TransactionController) SendTransaction(ctx *gin.Context) {
 	var tx *txutils.TransactionInfo
 	if err := ctx.ShouldBindJSON(&tx); err != nil {
-		ctx.IndentedJSON(http.StatusBadRequest, err)
+		HandleError(ctx, http.StatusBadRequest, err)
+		return
 	}
 
 	if err := c.TransactionService.SendTransaction(tx); err != nil {
-		ctx.IndentedJSON(http.StatusInternalServerError, err)
+		HandleError(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
-	ctx.IndentedJSON(http.StatusCreated, "send tx sucess")
+	ctx.JSON(http.StatusCreated, gin.H{"result": "send tx sucess"})
 }

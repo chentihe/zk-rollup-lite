@@ -40,7 +40,7 @@ func NewTxManager(context context.Context, redisCache *cache.RedisCache, signer 
 		contractAddress: address,
 		abi:             abi,
 		context:         context,
-		circuitPath:     circuitPath + "/tx",
+		circuitPath:     circuitPath + "/rollupTx",
 		keys:            &config.Keys,
 		commands:        &config.Commands,
 	}
@@ -106,7 +106,7 @@ func (txManager *TxManager) Listening() {
 func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) error {
 	var rollupInputs circuits.RollupInputs
 	for i := start; i <= end; i++ {
-		var tx circuits.RollupTx
+		var tx circuits.ProcessTxInputs
 		object, err := txManager.redisCache.Get(txManager.context, strconv.Itoa(i))
 		if err != nil {
 			return err

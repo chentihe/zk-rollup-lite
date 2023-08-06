@@ -31,7 +31,6 @@ Since installing snarkjs will also install circom, but the version is very old, 
 ### 2.1 Generate powersOfTau
 You can see [powers of tau ceremony](https://github.com/iden3/snarkjs#1-start-a-new-powers-of-tau-ceremony) for details.
 ```shell
-~/zk-rollup-lite: cd prover
 ~/prover: ./powers-of-tau.sh 15
 ~/prover: ./powers-of-tau.sh 17
 ```
@@ -43,12 +42,15 @@ It would take times to generate circuit related files.
 
 - **Compile withdraw circuit**
 ```shell
-~/zk-rollup-lite: cd prover
 ~/prover: ./compile-circuit.sh circuits/withdraw.circom trusted_setup/pot15_final.ptau
 ```
-- **Compile tx circuit**
+- **Compile processTx circuit**
 ```shell
-~/prover: ./compile-circuits.sh circuits/tx.circom trusted_setup/pot17_final.ptau
+~/prover: ./compile-circuits.sh circuits/tx.circom trusted_setup/pot15_final.ptau
+```
+- **Compile rollupTx circuit**
+```shell
+~/prover: ./compile-circuits.sh circuits/rollupTx.circom trusted_setup/pot15_final.ptau
 ```
 If you face the permission issue, execute below command to change the permission.
 ```shell
@@ -77,11 +79,16 @@ There are apis to query the account and the contract.
 - **Query the state root on the contract:** http://localhost:8000/api/v1/contract/root
 
 ## 5. Do a rollup
+Before running the cli, we should install the packages first.
+```shell
+~/zk-rollup-lite: cd operator
+~/operator: go mod download
+```
+
 There are two mock users on [env.yaml](https://github.com/chentihe/zk-rollup-lite/blob/main/operator/config/env.example.anvil.yaml#L1), and a rollup script to execute 2 rollup transactions.
 
 Open a new terminal and navigate to operator folder to execute the rollup script.
 ```shell
-~/zk-rollup-lite: cd operator
 ~/operator: ./rollup.sh
 ```
 
