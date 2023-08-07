@@ -1,6 +1,9 @@
 #  zk-rollup-lite
 
-This is a demo app of simple implementation of a layer2. We can see how layer2 works and what's the meaning of rollup.
+This is a demo app of simple implementation of a layer2.  
+We can see how layer2 works and what's the meaning of the rollup.  
+
+![zk-rollup-lite](https://github.com/chentihe/zk-rollup-lite/assets/48288259/d5faeddb-c742-402b-925f-1cacf9f19e21)
 
 ## 0. Prerequisite
 
@@ -23,7 +26,7 @@ cd zk-rollup-lite
 ~/prover: npm install
 ```
 
-Since installing snarkjs will also install circom, but the version is very old, we need to delete it manually. Otherwise errors will be occurred when we execute the building script.
+Since installing snarkjs will also install circom, but the version is very old, we need to delete it manually. Otherwise errors will be occurred when we execute the compile script.
 ```shell
 ~/prover: sudo rm -rf node_modules/circom
 ```
@@ -36,7 +39,7 @@ You can see [powers of tau ceremony](https://github.com/iden3/snarkjs#1-start-a-
 ```
 
 ### 2.2 Compile circuits
-The compile script will create build folder on operator directory because layer2 app need circuit files to generate zkp, we need to copy these files into the docker image.
+The compile script will create build folder on operator directory because layer2 app need circuit files to generate zkp(zero knowledge proof), we need to copy these files into the docker image.
 
 It would take times to generate circuit related files.
 
@@ -50,14 +53,14 @@ It would take times to generate circuit related files.
 ```
 - **Compile rollupTx circuit**
 ```shell
-~/prover: ./compile-circuits.sh circuits/rollupTx.circom trusted_setup/pot15_final.ptau
+~/prover: ./compile-circuits.sh circuits/rollupTx.circom trusted_setup/pot17_final.ptau
 ```
 If you face the permission issue, execute below command to change the permission.
 ```shell
 sudo chmod +x compile-circuits.sh
 ```
 ## 3. Start all services
-docker compose up command starts containers including postgres, redis, anvil(ethereum node), layer2 app. Except for that, when layer2 app starts, it will deploy necessary contracts(**tx verifier**, **withdraw verifier**, **rollup**) at the same time.
+**docker compose up** command starts containers including postgres, redis, anvil(ethereum node), layer2 app. Except for that, when layer2 app starts, it will deploy necessary contracts(**tx verifier**, **withdraw verifier**, **rollup**) at the same time.
 ```shell
 ~/prover: cd ..
 ~/zk-rollup-lite: docker compose up
@@ -79,12 +82,6 @@ There are apis to query the account and the contract.
 - **Query the state root on the contract:** http://localhost:8000/api/v1/contract/root
 
 ## 5. Do a rollup
-Before running the cli, we should install the packages first.
-```shell
-~/zk-rollup-lite: cd operator
-~/operator: go mod download
-```
-
 There are two mock users on [env.yaml](https://github.com/chentihe/zk-rollup-lite/blob/main/operator/config/env.example.anvil.yaml#L1), and a rollup script to execute 2 rollup transactions.
 
 Open a new terminal and navigate to operator folder to execute the rollup script.
@@ -103,7 +100,7 @@ First, navigate to cmd folder.
 ```shell
 ~/operator: cd cmd
 ```
-There are some command you can try to interact with the demo app.
+There are some commands you can try to interact with the demo app.
 ### 6.1 Deposit
 There are only two mock users to choose, 0 for the first user, 1 for the second user.
 
