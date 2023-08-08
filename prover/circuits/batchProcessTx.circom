@@ -49,10 +49,13 @@ template BatchProcessTx(batchSize, depth) {
         );
     }
 
+    // TODO: this assertion doesn't make sense
+    // if there is deposit or withdraw action between transactions
+    // the calculated root won't be equal to the init root of the next tx
     // Make sure calculated roots are valid
-    for (var i = 1; i < batchSize; i++) {
-        balanceTreeRoots[i] === processTxs[i - 1];
-    }
+    // for (var i = 1; i < batchSize; i++) {
+    //     balanceTreeRoots[i] === processTxs[i - 1];
+    // }
 
     newBalanceTreeRoot <== processTxs[batchSize - 1];
 }

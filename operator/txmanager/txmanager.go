@@ -84,19 +84,25 @@ func (txManager *TxManager) Listening() {
 			// break the loop
 			if lastInsertedTx-rollupedTxs >= batchSize {
 				var rolluped []string
+
 				for i := rollupedTxs; i <= lastInsertedTx; {
+					// rollup tx no.1 & no.2
 					if err = txManager.Rollup(&rolluped, i+1, i+batchSize); err != nil {
 						log.Printf("Rollup err: %v\n", err)
 						break
 					}
+
 					i += batchSize
 					if lastInsertedTx <= i || lastInsertedTx-i == 1 {
 						break
 					}
 				}
+
 				// delete the rolluped txs from redis
-				if err = txManager.redisCache.Del(txManager.context, rolluped); err != nil {
-					log.Printf("Del redis keys err: %v\n", err)
+				if len(rolluped) > 0 {
+					if err = txManager.redisCache.Del(txManager.context, rolluped); err != nil {
+						log.Printf("Del redis keys err: %v\n", err)
+					}
 				}
 			}
 		}
@@ -109,12 +115,11 @@ func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) error
 		var tx circuits.ProcessTxInputs
 		object, err := txManager.redisCache.Get(txManager.context, strconv.Itoa(i))
 		if err != nil {
-			return err
+			return fmt.Errorf("get tx no.%d err: %s", i, err)
 		}
 
 		json.Unmarshal([]byte(object), &tx)
 		rollupInputs.Txs = append(rollupInputs.Txs, &tx)
-		*rolluped = append(*rolluped, strconv.Itoa(i))
 	}
 
 	circuitInput, err := rollupInputs.InputsMarshal()
@@ -157,6 +162,10 @@ func (txManager *TxManager) Rollup(rolluped *[]string, start int, end int) error
 
 	if err = txManager.redisCache.Set(txManager.context, txManager.keys.RollupedTxsKey, strconv.Itoa(end)); err != nil {
 		return err
+	}
+
+	for i := start; i <= end; i++ {
+		*rolluped = append(*rolluped, strconv.Itoa(i))
 	}
 
 	log.Printf("Rollup success: %v\n", signTx.Hash().String())

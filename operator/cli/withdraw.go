@@ -72,7 +72,7 @@ func Withdraw(ctx *cli.Context, context context.Context, config *config.Config, 
 
 	data, err := svc.Abi.Pack("withdraw", withdrawAmount, withdrawOutputs.Proof.A, withdrawOutputs.Proof.B, withdrawOutputs.Proof.C, withdrawOutputs.PublicSignals)
 	if err != nil {
-		log.Printf("Cannot pack rollup call data: %v\n", err)
+		log.Printf("Cannot pack withdraw call data: %v\n", err)
 	}
 
 	tx, err := signer.GenerateLegacyTx(svc.RollUpAddress, data, nil)

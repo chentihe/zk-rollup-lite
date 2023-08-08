@@ -8,6 +8,7 @@ import (
 	"github.com/chentihe/zk-rollup-lite/operator/cache"
 	"github.com/chentihe/zk-rollup-lite/operator/circuits"
 	"github.com/chentihe/zk-rollup-lite/operator/config"
+	"github.com/chentihe/zk-rollup-lite/operator/models"
 	"github.com/chentihe/zk-rollup-lite/operator/tree"
 	"github.com/chentihe/zk-rollup-lite/operator/txutils"
 )
@@ -32,8 +33,9 @@ func NewTransactionService(context context.Context, accountService *AccountServi
 	}
 }
 
-// TODO: Should create a temp mt / account table,
-// if tx is invalid, mt and account table mustn't be updated
+// if deposit or withdraw happens on the odd number tx
+// batch process tx circom ln 54 will occur assertion error
+// TODO: fix this issue
 func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) error {
 	// create a process tx inputs object to save into redis
 	processTxInputs := &circuits.ProcessTxInputs{
@@ -45,6 +47,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	if err != nil {
 		return err
 	}
+	cpFrom := fromAccount.Copy()
 
 	// validate txinfo
 	if err = tx.Validate(fromAccount.Nonce); err != nil {
@@ -62,7 +65,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 	processTxInputs.Sender = &circuits.AccountInfo{
-		Account:      *fromAccount.Copy(),
+		Account:      *cpFrom,
 		PathElements: senderPathElements,
 	}
 
@@ -70,6 +73,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	if err != nil {
 		return err
 	}
+	cpTo := toAccount.Copy()
 
 	// set recipient data into rollup tx
 	recipientPathElements, err := service.accountTree.GetPathByAccount(toAccount)
@@ -77,7 +81,7 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 	processTxInputs.Recipient = &circuits.AccountInfo{
-		Account:      *toAccount.Copy(),
+		Account:      *cpTo,
 		PathElements: recipientPathElements,
 	}
 
@@ -118,12 +122,15 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 		return err
 	}
 
+	// if errors occur during zkp process, roll back the account table & mt
 	proof, err := circuits.GenerateGroth16Proof(circuitInput, service.circuitPath)
 	if err != nil {
+		service.rollback(cpFrom, cpTo)
 		return err
 	}
 
 	if err = circuits.VerifierGroth16(proof, service.circuitPath); err != nil {
+		service.rollback(cpFrom, cpTo)
 		return err
 	}
 
@@ -154,4 +161,11 @@ func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) 
 	}
 
 	return nil
+}
+
+func (service *TransactionService) rollback(from *models.AccountDto, to *models.AccountDto) {
+	service.accountService.UpdateAccount(from)
+	service.accountService.UpdateAccount(to)
+	service.accountTree.UpdateAccount(from)
+	service.accountTree.UpdateAccount(to)
 }

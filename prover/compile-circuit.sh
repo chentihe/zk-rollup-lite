@@ -6,6 +6,9 @@ compile_and_ts() {
     CIRCUIT_PATH="$1"
     CIRCUIT=`basename "$CIRCUIT" .circom`
 
+    PARENT_FOLDER="$(dirname "$(pwd)")"
+    echo "${PARENT_FOLDER}"
+
     mkdir -p "$CIRCUIT"
     cd "$CIRCUIT"
 
@@ -46,7 +49,7 @@ compile_and_ts() {
     time snarkjs zkey export verificationkey circuit_final.zkey verification_key.json || true
     #time snarkjs zkey export json circuit_final.zkey circuit_final.zkey.json
 
-    #time snarkjs zkey export solidityverifier circuit_final.zkey "$CIRCUIT"verifier.sol
+    # time snarkjs zkey export solidityverifier circuit_final.zkey "${CIRCUIT}"verifier.sol
     set +x
 }
 
