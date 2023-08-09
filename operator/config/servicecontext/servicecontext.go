@@ -63,7 +63,7 @@ func NewServiceContext(context context.Context, config *config.Config) *ServiceC
 	}
 
 	// deploy tx verifier, withdraw verifier, rollup contracts
-	deployer := contracts.NewDeployer(ethClient, signer, &config.SmartContracts)
+	deployer := contracts.NewDeployer(context, ethClient, signer, &config.SmartContracts)
 
 	contractAddress := common.HexToAddress(config.SmartContracts.Rollup.Address)
 	contractAbi, err := abi.JSON(strings.NewReader(config.SmartContracts.Rollup.Abi))

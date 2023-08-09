@@ -33,9 +33,6 @@ func NewTransactionService(context context.Context, accountService *AccountServi
 	}
 }
 
-// if deposit or withdraw happens on the odd number tx
-// batch process tx circom ln 54 will occur assertion error
-// TODO: fix this issue
 func (service *TransactionService) SendTransaction(tx *txutils.TransactionInfo) error {
 	// create a process tx inputs object to save into redis
 	processTxInputs := &circuits.ProcessTxInputs{
